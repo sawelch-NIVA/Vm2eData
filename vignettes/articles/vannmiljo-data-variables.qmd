@@ -1,0 +1,259 @@
+---
+title: "Variables in the Oslo January 2020 export"
+description: >
+  A walk through the columns of a raw Vannmiljø water-registration export,
+  what each one means, and what we do with it on the way to eData.
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
+
+::: callout-warning
+## Placeholder article
+
+This is a quick review of the data variables in a Vannmiljø export. Not exhaustive, because it's based on a subset of the data (in this example, samples taken in Oslo kommune between Jan 01 and Jan 31 2020.) Columns are reproduced in order, names/info correct as of 28/09/2026.
+:::
+
+# `Vannlok_kode` — site code
+
+**What it is.** Vannmiljø water-location code. Foreign key for the WaterLocation/Vannlokasjon table.
+
+**Format:** Typically a two-part numeric code. possible formats include `XX.XX-XXXXX`, `XXX-XXXXX`, `XXX-XXXXXX` and maybe others. I believe the second part identifies unique WFD water bodies, but I@m not sure. 
+
+**What we do with it.** Lookup key, and the basis of `SITE_CODE`. Where one code has measurements under more than one geographic feature (e.g. sediment vs. water column) we split it into `Vannlok_kode_split` (`-01`, `-02`, …) so each eData site has a single, unambiguous type. The final `SITE_CODE` is `Vannmiljø_{Vannlok_kode_split}`. 
+
+# `Vannlokalitetsnavn` — site name
+
+**What it is.** Free text site name. Uncertain if it has to be unique, or not.
+
+**Format:** Free text. May be specific ("Indre Oslofjord, Bekkelagsbassenget"), or general ("Sinsen")
+
+**What we do with it.** Becomes `SITE_NAME` (`Vannmiljø Station {name}`). Also used to exclude named sites (e.g. the one Svalbard site). 
+
+# `Betegnelse` - designation
+
+**What it is.** No idea
+
+**Format:** Free text? Most commonly NA, but also `Cq 1`, `1484 Oppstrøms`, `Kon-Aln`. May give better differentiation for sites?
+
+**What we do with it.** No ideam, presumably dropped. 
+
+# `Type` - (water body) type
+
+**What it is.** Records type of water body sampled, if relevant.
+
+**Format:** Controlled. One of `NA`, `Kyst`, `Elv`, `Innsjø` in this dataset
+
+**What we do with it.** Complex transformation to end up with eData compartment/site info
+
+# `Objekttype` — geometry type
+
+**What it is.** TODO: whether the site is a point, line or polygon.
+
+**What we do with it.** Only `point` sites are kept; eData sites are points. *Decision: Filter.*
+
+# `Aktivitet_id` — activity ID
+
+**What it is.** Vannmiljø activity/campaign short code. Useful information, important to intepreting as we may not otherwise capture that e.g. a point is important (because it's, for example, a highly contaminated mine site)
+
+**Format::** A four-letter code: `TILT`, `MITE`, `MYFO`, etc.
+
+**What we do with it.** Joined to our campaigns lookup to produce `CAMPAIGN_NAME_SHORT`. The README notes that some campaigns are worth excluding (e.g. Milby), which would happen here. *Decision: Lookup + Filter.*
+
+# `Oppdragsgiver` — ???
+
+**What it is.** Whoever commissioned the sampling. Messy and duplicates/typos.
+
+**Format::** Free text. Could be a gov agency (e.g. `MILDIR`, `Miljødirektoratet`, or an institute like `NIVA`).
+
+**What we do with it.** Dropped, I think.
+
+# `Oppdragstaker` — contractor
+
+**What it is.** Whoever conducted the sampling
+
+**Format::** Free text. Generally an institute: `NIVA`, `NILU`, etc.
+
+**What we do with it.** Dropped, I think.
+
+# `Aktivitet_navn` — activity name
+
+**What it is.** Vannmiljø activity/campaign long name. The longer counterpart of `Aktivitet_id`, generally quite informative.
+
+**Format::** Free text.
+
+**What we do with it.** Handled via the campaign lookup.
+
+# `Parameter_id` and `Parameter`
+
+**What they are.** short ID (e.g. `TURB`, `PH`) and long name (`Turbiditet`, `pH`) of a measured parameter.
+
+**What we do with them.** Feed the eData parameters table. The current code assumes a single parameter (copper) and stops if there is more than one; this export will almost certainly contain many. TODO: decide how to handle the multi-parameter case. *Decision: Keep / needs work.*
+
+# ``Parameter_casnr` Parameter CAS code
+
+**What they are.** CAS code for the (chemical) parameter, if relevant
+
+**Format:** Presumably controlled text. Chiefly `NA`, but also `7782-44-7`, `14265-44-2`, etc.
+
+**What we do with them.** No idea, wasn't relevant with copper. May be worth re-using or ignoring, since I don't have a good idea how reliably they're implemented
+
+# `Medium_id` and `Medium_navn` — sample medium
+
+**What it is.** Controlled vocabulary capturing environmental compartment, tissue, or occasionally manufactored products that were sampled
+
+**Format:** `VF` - `Ferskvann`; `BL` - `Biota lever`, etc. 
+
+**What we do with it.** Looked up to give a second guess at compartment, sub-compartment and geographic feature, plus a tissue type for biota. Where this disagrees with `Vannkategori` we apply explicit resolution rules (biota wins; non-wildcard beats wildcard; sediment beats water) and drop what we cannot resolve. *Decision: Lookup.*
+
+# `VitenskapligNavn` and `LatinskNavn_id` — scientific name
+
+**What it is.** Species name and associated ID for biota samples.
+
+**What we do with it.** Becomes `SAMPLE_SPECIES`, after a few corrections (e.g. `Laksesmolt` → *Salmo salar*, juvenile) and a species-group lookup. Vannmiljø names may be erroneous, so biota rows carry a comment saying so. *Decision: Transform + Lookup.*
+
+# `Provetakmetode_id` — sampling method
+
+**What it is.** ID of the sampling method in Vannmiljø's method list. Name and description can be looked up here: https://vannmiljokoder.miljodirektoratet.no/samplingMethod?q=
+
+**Format:** CV text. `NS-ISO 5667-6:2014-1`, `UKJENT`, etc. 
+
+**What we do with it.** Joined to our methods table to produce a `SAMPLING_PROTOCOL`. TODO: currently placeholder IDs in the measurements step — update once the mapping is wired in. *Decision: Lookup.*
+
+# `Analysemetode_id` — analytical method
+
+**What it is.**  ID of the analytical method in Vannmiljø's method list. Name and description can be looked up here: https://vannmiljokoder.miljodirektoratet.no/analysisMethod
+
+**What we do with it.** Joined to the methods table for `ANALYTICAL_PROTOCOL`. TODO: same caveat as the sampling method. *Decision: Lookup.*
+
+# `Tid_provetak` — sampling time
+
+**What it is.** Date-time the sample was taken.
+
+**Format:** `2020-01-13 09:00:00`. Not actually sure what this format is called.
+
+**What we do with it.** Truncated to a date for `SAMPLING_DATE`, and used to filter to the study period. TODO: what we lose by dropping the time of day. *Decision: Transform + Filter.*
+
+# `Ovre_dyp` and `Nedre_dyp` — upper and lower sampling depths
+
+**What it is.** The upper and lower depth a sample was taken from?
+
+**Format:** A decimal value, including 0, or somethimes `NA`
+
+**What we do with it.** Not really sure?
+
+# `DybdeEnhet`  — depth unit
+
+**What it is.** The unit associated with depth values
+
+**Format:** Either `m` or `NA`
+
+**What we do with it.** Not really sure?
+
+# `Filtrert_Prove` — filtered sample
+
+**What it is.** Whether the sample was filtered before analysis. `Ufiltrert` is total; `Filtrert` is filtered through a 0.45 µm membrane, the operational "dissolved" fraction.
+
+Format: Almost always `Ufiltrert`, rarely `Filtrert`. Never seen it be `NA`.
+
+**What we do with it.** Coded to `FRACTIONATION_PROTOCOL` as `Total` or `Filtered 0.45um`, matching eData's own vocabulary. *Decision: Transform.*
+
+`UnntasKlassifisering` -. I don't know what this does
+
+# `Vannkategori` — water category
+
+**What it is.** TODO: Vannmiljø's classification of the water body (river, lake, coastal, …).
+
+**What we do with it.** Looked up against our Vannkategori table to give a candidate environmental compartment, sub-compartment and geographic feature. This is one of two independent guesses at the compartment (the other is `Medium_id`), and the two are reconciled later. *Decision: Lookup.*
+
+# `Verdi` — value
+
+**What it is.** TODO: the measured value.
+
+**Format**: Always, as far as I know, a number. Never seen it as `NA`, which makes sense.
+
+**What we do with it.** Becomes `MEASURED_VALUE` unchanged. *Decision: Keep.*
+
+
+# `Operator`
+
+**What it is.** How to read `Verdi`: `=` exact, `<` below quantification limit, `ND` not detected, and occasionally `>`. I believe the latter is mainly relevant to biotic measurements (e.g. CFU?)
+
+**What we do with it.** Converted to `MEASURED_FLAG`: `=` → blank, `<` → `< LOQ`, `ND` → `< LOD`. Any other value is an error in the converter; in the pipeline, `>` rows are currently dropped (there's a TODO to revisit). *Decision: Transform.*
+
+# `Listenavn`
+
+No idea.
+
+# `Enhet`
+
+Unit. Currently seems to be provided as a full name, e.g. `µg/kg v.v.`, `µg/l`, or `<ubenevnt>`. 
+
+# `Provenr` - sample number
+
+Presumably traceability to the field sample, but not especially useful. In our example dataset, ~50% of Provenr is just `NA`. Still, we should include this for traceability.
+
+
+# `Kvantifiseringsgrense` and `Deteksjonsgrense` — LOQ and LOD
+
+**What they are.** TODO: limit of quantification and limit of detection.
+
+**What we do with them.** Become `LOQ_VALUE` and `LOD_VALUE`, sharing the unit of the measurement. TODO: how often are these populated when `Operator` is `<`? *Decision: Keep.*
+
+
+# `Beskrivelse` and `Knytt til påvirkning`
+
+**What they are.** TODO: a free-text site description, and the pressure the site is linked to (e.g. industry, aquaculture).
+
+**What we do with them.** Both are folded into `SITE_COMMENT`. The pressure is also normalised to a small set of English values where it matches a known one. *Decision: Transform.*
+
+# `Opprinnelse` - Origin
+
+No idea. Doesn't seem to store any actual information.
+
+# `Ant_verdier` — number of values
+
+**What it is.** How many underlying observations `Verdi` summarises. In parctical terms, almost always (>90%) `1`, but in some cases `288`?
+
+**What we do with it.** Becomes `MEASURED_N`. *Decision: Keep.*
+
+# `Kommentar` — comment
+
+**What it is.** Free-text comment on the result. May be quite important: for example, in one subset the comments field recorded that a unit conversion was performed by (wrongly) multiplying values by 1000x. 
+
+**What we do with it.** Copied to `MEASUREMENT_COMMENT`.  *Decision: Keep.*
+
+# `Arkiv` — arkive
+
+**What it is.** Unclear. Presumably records if data is archived. So far, only `N`.
+
+**What we do with it.** Dropped.
+
+# `Medium_id` — sample medium
+
+**What it is.** TODO: what was sampled (water, sediment, a tissue of some organism, …).
+
+**What we do with it.** Looked up to give a second guess at compartment, sub-compartment and geographic feature, plus a tissue type for biota. Where this disagrees with `Vannkategori` we apply explicit resolution rules (biota wins; non-wildcard beats wildcard; sediment beats water) and drop what we cannot resolve. *Decision: Lookup.*
+
+# Produktbeskrivelse
+
+I believe this doesn't carry any relevant info, especially if we're just working with water.
+
+# `UTM33 Ost (X)` and `UTM33 Nord (Y)` — coordinates
+
+**What it is.** Easting/northing in ETRS89 / UTM zone 33N (EPSG:25833), regardless of where in Norway the site is. Note that there doesn't appear to be any validation of this, so sites will occasionally pop up e.g. off the coast of Africa.
+
+**What we do with it.** Reprojected to WGS 84 (EPSG:4326) to give `LATITUDE` and `LONGITUDE`. *Decision: Transform.* TODO: note what happens to sites with missing or implausible coordinates.
+
+
+## Open questions
+
+- TODO: which of these columns are stable across Vannmiljø exports, and which have changed name in the past?
+- TODO: what should we do with sites that only appear in this export and not in a sites download?
+- TODO: which decisions above are ours to make, and which need a domain expert?
