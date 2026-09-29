@@ -1,0 +1,28 @@
+---
+title: "Getting data from Vanmniljø"
+description: >
+  How we get data from Vannmiljø
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
+
+- Vm offer two ways to get data: a frontend at https://vannmiljo.miljodirektoratet.no/ (including a qGIS-powered map interface), and an API (documented [here](https://vannmiljokoder.miljodirektoratet.no/api), needs a key)
+
+- In practical terms Vannmiljø consists of two primary tables: `WaterLocation` (site data) and `WaterRegistration` (parameter data), linked by the key `WaterLocation.Vannlokalitet ID` = `WaterRegistration.Vannlokalitet_kode`
+
+    - In practical terms, this is a many-to-one relationship - a single site can have many samples, a single sample can only have one site
+
+# Frontend
+
+Vannmiljø's frontend is good but not great. It offers a decent range of differentiation in querying, plus the ability to trace individual datapoints and view them on a map is very useful. However, the UI is restrictive in places. 
+
+## [Søk i data](https://vannmiljo.miljodirektoratet.no/#/searchregistrations) - Search in data
+
+This is how you search `WaterRegistration`. The UI has two panes: "vannrelaterte data", a supercategory that includes chemicals but 

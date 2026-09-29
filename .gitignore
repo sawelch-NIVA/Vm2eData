@@ -3,8 +3,9 @@
 .RData
 .Ruserdata
 docs
-data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-1.xlsx
-data/raw/vannmiljo/Vm_Copper_2025.12.05.xlsx
+data/raw/vannmiljo/Vm_Copper*.xlsx
 data/raw/vannmiljo/Vm_Output_Data_Q1_2025.xlsx
-data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-2.xlsx
-data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-3.xlsx
+data/raw/vannmiljo/~$VM_Activties_MGR_Comments.xlsx
+inst/example_datasets/*.xlsx
+*_cache/
+inst/shapefiles

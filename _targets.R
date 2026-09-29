@@ -52,6 +52,7 @@
   library(sf)
   library(readr)
   library(readxl)
+  library(arrow)
   library(glue)
   library(cli)
   message(paste(
@@ -94,30 +95,24 @@ list(
   ### # Raw data ----
 
   #### # Copper measurements ----
+  # Example datasets ship as .parquet (converted from the Vannmiljø
+  # frontend's .xlsx export via data-raw/prepare_copper_dataset.R - see
+  # data/raw/vannmiljo/README.md for provenance).
   tar_target(
     vm_raw_copper,
-    read_excel(
-      path = "data/raw/vannmiljo/Vm_Copper_2025.12.05.xlsx",
-      sheet = 1,
-      guess_max = 138615
-    )
+    read_parquet("data/raw/vannmiljo/Vm_Copper_2025.12.05.parquet")
   ),
 
   #### # Sites (3 files due to export limit) ----
   tar_target(
     vm_raw_sites,
     {
-      read_excel(
-        "data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-1.xlsx",
-        guess_max = 10000
-      ) |>
-        add_row(read_excel(
-          "data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-2.xlsx",
-          guess_max = 10000
+      read_parquet("data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-1.parquet") |>
+        add_row(read_parquet(
+          "data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-2.parquet"
         )) |>
-        add_row(read_excel(
-          "data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-3.xlsx",
-          guess_max = 10000
+        add_row(read_parquet(
+          "data/raw/vannmiljo/Vm_Copper_Sites_2025.12.05-3.parquet"
         ))
     }
   ),
