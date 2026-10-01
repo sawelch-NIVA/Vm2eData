@@ -1,0 +1,31 @@
+Vannmiljø's Aktivitet names/IDs correspond both to formal monitoring campaigns with associated reports (e.g. MILKYS), as well as other sources of data.
+
+# Aquaculture
+
+Aquaculture facilities are required to conduct frequent monitoring of the sediment below
+their sites for contamination. In some areas (such as the Arctic), this is the single largest source of pollution data, and eclipses formal monitoring campaigns. 
+
+https://www.vannportalen.no/veiledere/veiledning-i-bruk-av-data-fra-miljoundersokelser-ved-akvakulturanlegg-i-sjo-til-klassifisering-av-vannforekomster/
+
+# Basisovervåking
+
+According to https://www.vannportalen.no/kunnskapsgrunnlaget/overvaking2/basisovervaking/,
+Basisovervåking consists of the following activities:
+
+Kystvann:  
+
+    Økosystemovervåking i kystvann (Økokyst) (miljødirektoratet)
+    Miljøgifter i kystområdene (Milkys) (miljødirektoratet) ()
+    Havforsuringsprogrammet (miljødirektoratet)
+
+Ferskvann (elver og innsjøer):
+
+    Overvåking av elvetilførsler og direkte utslipp til norske kystområder (Elvetilførselsprogrammet): 
+        Elveovervåkningsprogrammet – vannkvalitetsstatus og trender
+        Kildefordelte tilførsler av nitrogen og fosfor til norske kystområder
+    Økosystemovervåking i store sjøer (ØKOSTOR)
+    Økosystemovervåking i ferskvann (ØKOFERSK)
+    Referanseelver
+    Grunnvann
+
+However, when we've looked at 

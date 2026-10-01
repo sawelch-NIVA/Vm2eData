@@ -1,5 +1,7 @@
 library(sf)
 library(ggplot2)
+library(readr)
+library(pointblank)
 
 # via https://kartkatalog.miljodirektoratet.no/dataset/Details/501?lang=en-us
 fjord_catalog <- sf::read_sf(

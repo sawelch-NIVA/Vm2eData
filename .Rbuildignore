@@ -5,3 +5,14 @@
 ^pkgdown$
 ^data-raw$
 ^\.github$
+^data$
+^_targets$
+^_targets\.R$
+^_targets\.yaml$
+^scratchpad$
+^jan2020_oslo\.R$
+^temp_matrix_ggplot\.png$
+^\.claude$
+^inst/worldcities\.xlsx$
+^inst/shapefiles$
+^LICENSE\.md$

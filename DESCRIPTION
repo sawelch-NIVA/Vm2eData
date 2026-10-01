@@ -1,24 +1,44 @@
 Package: Vm2eData
-Title: What the Package Does (One Line, Title Case)
+Title: Convert Vannmiljo Monitoring Data to eData Format
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Sam", "Welch", , "sam@samwelch.co.uk", role = c("aut", "cre"))
+Description: Tools for cleaning, filtering and converting Norwegian
+    Vannmiljo water monitoring data into the eData templates used by
+    STOPeData, plus notes on the Vannmiljo data model.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
+    cli,
     data.table,
     dplyr,
     eDataDRF,
     glue,
     lubridate,
+    sf,
     STOPeData,
+    stringr,
     tibble
 Suggests:
     arrow,
+    ggplot2,
+    ggrepel,
     here,
-    readxl
+    hexbin,
+    knitr,
+    leaflet,
+    purrr,
+    readr,
+    readxl,
+    rnaturalearth,
+    rnaturalearthdata,
+    rnaturalearthhires,
+    scales,
+    tidyverse
 URL: https://sawelch-niva.github.io/Vm2eData/
 Config/roxygen2/version: 8.1.0
+Remotes:
+    NIVANorge/eDataDRF,
+    NIVANorge/STOPeData,
+    ropensci/rnaturalearthhires

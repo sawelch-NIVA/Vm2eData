@@ -1,8 +1,7 @@
 ---
 title: "Vannmiljø Data Exploration - Arctic & Marine"
 description: >
-  Exploring subsets of Vannmiljø data to see how much information they could give us about 
-  mixtures of pollutants in Arctic marine environments.
+  Exploring subsets of Vannmiljø data to see how much information they could give us about mixtures of pollutants in Arctic marine environments.
 format:
   html:
     toc: true
@@ -10,9 +9,7 @@ format:
     code-fold: true
     code-overflow: wrap
     lightbox: true
-execute: 
-  cache: false
-  error: true
+error: true
 ---
 
 ```{r setup}
@@ -265,7 +262,7 @@ walk(subgroups, .f = function(subgroup) {
     arrange(desc(total_n)) |>
     mutate(
       Parameter_id = fct_inorder(Parameter_id),
-      Parameter_id = fct_lump_n(Parameter_id, 30, w = n)
+      Parameter_id = fct_lump_n(Parameter_id, 30, w = total_n) |> fct_rev()
     )
 
   p <- ggplot(
@@ -280,8 +277,7 @@ walk(subgroups, .f = function(subgroup) {
       title = subgroup,
       subtitle = "Most common parameter per group, lumped after 30 groups"
     ) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme_minimal()
 
   print(p)
 })
@@ -498,7 +494,7 @@ copper_dataset_highlights_sf <- copper_dataset_highlights |>
   )
 
 bigger_arctic_bbox <- sf::st_bbox(
-  c(xmin = 4, ymin = 65, xmax = 40, ymax = 90),
+  c(xmin = 4, ymin = 65, xmax = 40, ymax = 75),
   crs = sf::st_crs(4326)
 )
 
@@ -562,14 +558,15 @@ I want to get some advice here because I feel this is quite an important questio
 
 One option is to use fjord IDs. These look like `04.21.02.10.00` == `Akkarfjorden`; Vannlok_kode's first two elements for coastal sites correspond to the first two groups of the parent fjord. This may or may not be useful...?
 
-
 ```{r}
+#| eval: false
 fjord_id <- read_csv("inst/shapefiles/fjord-catalog/fjord_catalog_lookup.csv")
 ```
 
 If we have only the first two elements to match on:
 
 ```{r}
+#| eval: false
 fjord_id_short <- fjord_id |>
   mutate(id_short = substr(fjordid, start = 1, stop = 5))
 
@@ -579,4 +576,97 @@ fjord_id_short |>
   filter(!is.na(names))
 ```
 
-Ok, I'm making the call that we can't just group by fjord ID.
+Ok, I'm making the call that we can't just group by fjord ID. 
+
+### Cities
+
+I don't have a good understanding of cities in Norway, so let's get some data.
+
+```{r}
+norway_cities <- read_excel(here("inst", "worldcities.xlsx")) |>
+  filter(iso2 == "NO") |>
+  mutate(
+    bigger_city = population > 20000
+  ) |>
+  st_as_sf(coords = c("lng", "lat"), crs = st_crs(4326))
+```
+
+We know that Bodo is relatively well-characterised, so what if we just look there?
+
+```{r copper-hotspot-bodo}
+
+arctic_context <- europe_context
+
+# Hexes are binned in x/y units, so project to metres first (ETRS89 / UTM 33N)
+map_crs <- 25833
+plot_bbox <- bigger_arctic_bbox |>
+  st_as_sfc() |>
+  st_transform(map_crs) |>
+  st_bbox()
+
+copper_xy <- copper_dataset_highlights_sf |>
+  st_crop(bigger_arctic_bbox) |>
+  st_transform(map_crs) |>
+  mutate(
+    x = st_coordinates(geometry)[, 1],
+    y = st_coordinates(geometry)[, 2]
+  )
+
+ggplot() +
+  geom_hex(
+    data = copper_xy,
+    aes(x = x, y = y),
+    alpha = 0.9,
+    bins = 75
+  ) +
+  geom_sf(data = arctic_context, fill = NA) +
+  geom_sf(data = norway_cities |> st_crop(bigger_arctic_bbox), colour = "red") +
+  geom_sf_text(
+    data = norway_cities |> st_crop(bigger_arctic_bbox),
+    colour = "red",
+    aes(label = city),
+    hjust = 0, # text starts at the point and runs right
+    vjust = 1 # text hangs below the point
+  ) +
+  # crs = map_crs so the non-sf hex layer (already in metres) lines up;
+  # limits are then also in metres
+  coord_sf(
+    crs = map_crs,
+    xlim = plot_bbox[c("xmin", "xmax")],
+    ylim = plot_bbox[c("ymin", "ymax")]
+  ) +
+  scale_fill_viridis_c(name = "n") +
+  labs(title = "Copper monitoring density, arctic sites")
+
+copper_dataset_highlights_sf |>
+  st_crop(bigger_arctic_bbox) |>
+  group_by(Vannlok_kode, Aktivitet_id) |>
+  reframe(n = n()) |>
+  arrange(desc(n))
+```
+
+Does arctic + marine hold consistent over time (in the vertical slice), or does it vary? If the latter, we can't assume that the horizontal slice is representative.
+
+Next tasks:
+
+- Look at the last 5 years only.
+- Review hotspots - population centres, plus individual fjords with activities
+- Get a basic summary of sources, etc. 
+- Find areas with the most contamination, overlap with protection
+- Ask Claude: which Arctic areas are known to be highly polluted
+- But also would be helpful from an arctic perspective to identify the most monitored pollutants in the Arctic
+- Characterise mixtures at hotspots
+- Only consider sediment and water concentrations
+- Send KET a list of relevant reports
+- Get 
+
+= Could we do the whole-artic data and have a look at how much spatial location explains it?
+
+= Could scope it to water and sediment, sørfjorden
+- Do some AI summaries of relevant monitoring reports/campaigns
+
+1. Get Claude to review NEA reports over the past 5 years for Arctic data
+2. Use this to select hotspots (sediment and water, do some sort of gridding exercise\)
+3. Review those hotspots in the data - what mixtures do you encounter?
+
+Also: get this document exported properly to HTML/PDF
