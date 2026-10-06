@@ -2,7 +2,7 @@ library(tidyverse)
 library(pointblank)
 
 jan2020_oslo <- arrow::read_parquet(
-  "inst/example_datasets/WaterRegistrationExport-Oslo-Jan20.parquet"
+  "inst/example_datasets/registrations/WaterRegistrationExport-Oslo-Jan20.parquet"
 )
 
 jan2020_oslo |> pointblank::scan_data(sections = "OVMS")
@@ -16,7 +16,7 @@ jan2020_oslo |> pointblank::scan_data(sections = "OVMS")
 # sites, based on Vannkategori? but that's quite far down the line... and we don't immediately have this data
 
 sites_oslo <- arrow::read_parquet(
-  "inst/example_datasets/WaterLocationExport-Oslo.parquet"
+  "inst/example_datasets/sites/WaterLocationExport-Oslo.parquet"
 )
 
 

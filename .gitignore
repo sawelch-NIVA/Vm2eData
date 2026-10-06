@@ -9,3 +9,5 @@ data/raw/vannmiljo/~$VM_Activties_MGR_Comments.xlsx
 inst/example_datasets/*.xlsx
 *_cache/
 inst/shapefiles
+# Temporary Quarto/VS Code vdoc files
+.vdoc.*

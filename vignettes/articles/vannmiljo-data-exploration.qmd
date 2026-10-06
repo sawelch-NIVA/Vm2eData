@@ -79,6 +79,7 @@ Let's start with a horizontal slice of Vannmiljø, hopefully more-or-less repres
 horizontal_slice <- read_parquet(here(
   "inst",
   "example_datasets",
+  "registrations",
   "WaterRegistrationExport-NO-Jan20-May20.parquet"
 ))
 
@@ -392,11 +393,21 @@ This dataset covers all copper concentrations measured from 2010 - 2025. Note th
 # slightly different format to the more recent extracted data above!
 
 copper_registrations <- read_parquet(
-  here("inst", "example_datasets", "Vm_Copper_2025.12.05.parquet")
+  here(
+    "inst",
+    "example_datasets",
+    "registrations",
+    "Vm_Copper_2025.12.05.parquet"
+  )
 )
 
 copper_sites <- read_parquet(
-  here("inst", "example_datasets", "Vm_Copper_Sites_2025.12.05.parquet")
+  here(
+    "inst",
+    "example_datasets",
+    "sites",
+    "Vm_Copper_Sites_2025.12.05.parquet"
+  )
 )
 
 copper_dataset <- left_join(
@@ -452,7 +463,10 @@ copper_campaign_rep <- copper_dataset_highlights |>
   mutate(Aktivitet_navn = fct_inorder(Aktivitet_navn) |> fct_rev())
 
 # why is it not in order?
-ggplot(data = campaign_rep, aes(y = Aktivitet_navn, fill = highlight, x = n)) +
+ggplot(
+  data = copper_campaign_rep,
+  aes(y = Aktivitet_navn, fill = highlight, x = n)
+) +
   geom_col() +
   scale_fill_manual(values = highlight_colours, name = NULL) +
   labs(title = "Copper monitoring data points by campaign; 2010-2025")
@@ -594,7 +608,6 @@ norway_cities <- read_excel(here("inst", "worldcities.xlsx")) |>
 We know that Bodo is relatively well-characterised, so what if we just look there?
 
 ```{r copper-hotspot-bodo}
-
 arctic_context <- europe_context
 
 # Hexes are binned in x/y units, so project to metres first (ETRS89 / UTM 33N)
