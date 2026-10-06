@@ -14,6 +14,7 @@ Example exports from Vannmiljø (https://vannmiljo.miljodirektoratet.no/) and it
 | `WaterRegistrationExport-NO-Jan10-Jan25-SedSV.parquet` | 2026-10-05 | Vannmiljø frontend export (Søk i miljøgifter) | 2010-01 to 2025-01 (data: 2010-01-01 to 2025-01-01) | Norway | Sediment saltvann | none recorded | 482,398 |
 | `WaterRegistrationExport-NO-Jan20-May20.parquet` | 2026-09-29 | Vannmiljø frontend export (Søk i vannrelaterte data) | 2020-01-01 to 2020-05-31 | Norway | all | none recorded | 464,059 |
 | `WaterRegistrationExport-Oslo-Jan20.parquet` | 2026-09-29 | Vannmiljø frontend export (Søk i vannrelaterte data) | 2020-01-01 to 2020-01-31 | Oslo | all | none recorded | 2,675 |
+| `WaterRegistrationExport-Milkys-AllPollutants.parquet` | 2026-10-06 | Vannmiljø frontend export (Søk i miljøgifter) | all (data: 2011-08-20 to 2024-12-15) | Norway | all (data are biota: lever, bløtdeler, egg, blod, muskelvev, ...) | all pollutants; campaign = Milkys (Miljøgifter i kystområdene (MilKys)); no other filtering | 205,440 |
 | `Vm_Copper_2025.12.05.parquet` | 2025-12-05 (per file name) | not recorded | not recorded | not recorded | not recorded | copper (per file name) | not recorded |
 
 ## sites/

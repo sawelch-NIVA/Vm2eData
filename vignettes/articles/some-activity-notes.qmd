@@ -228,8 +228,6 @@ copper_dataset |>
   )
 ```
 
-
-
 This time let's just look at Arctic data
 
 ```{r copper-campaign-representation}

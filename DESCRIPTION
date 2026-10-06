@@ -29,6 +29,7 @@ Suggests:
     knitr,
     leaflet,
     purrr,
+    quarto,
     readr,
     readxl,
     rnaturalearth,
