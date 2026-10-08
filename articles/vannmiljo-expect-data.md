@@ -196,7 +196,9 @@ arctic_label_y <- st_coordinates(arctic_circle_line) |>
   slice_min(abs(X - plot_bbox[["xmax"]]), n = 1) |>
   pull(Y)
 
-plot_density <- function(data, medium_navn, option, title) {
+cell_size <- 20000 # metres (UTM 33N)
+
+plot_grid_density <- function(data, medium_navn, option, title) {
   ggplot() +
     geom_sf(
       data = arctic_context,
@@ -204,14 +206,15 @@ plot_density <- function(data, medium_navn, option, title) {
       colour = "grey30",
       linewidth = 0.2
     ) +
-    geom_hex(
+    geom_bin_2d(
       data = if (is.null(medium_navn)) {
         data
       } else {
         filter(data, Medium_navn == medium_navn)
       },
       aes(x = x, y = y),
-      bins = 60,
+      binwidth = c(cell_size, cell_size),
+      boundary = 0, # same grid origin on every map, so maps are comparable
       alpha = 0.75
     ) +
     geom_sf(
@@ -243,7 +246,7 @@ plot_density <- function(data, medium_navn, option, title) {
       stat = "sf_coordinates",
       size = 3,
       colour = "black",
-      bg.colour = "white", # white halo keeps labels legible over the hexes
+      bg.colour = "white", # white halo keeps labels legible over the cells
       bg.r = 0.15,
       min.segment.length = 0.2,
       segment.colour = "grey40",
@@ -261,7 +264,7 @@ plot_density <- function(data, medium_navn, option, title) {
     ) +
     theme_minimal() +
     theme(axis.title = element_blank()) +
-    labs(title = title)
+    labs(title = title, subtitle = paste0(cell_size / 1000, " km grid"))
 }
 ```
 
@@ -269,7 +272,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy,
   "Saltvann",
   "viridis",
@@ -292,7 +295,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy,
   "Sediment saltvann",
   "plasma",
@@ -308,7 +311,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn != "Miljøovervåking akvakulturanlegg"),
   "Sediment saltvann",
@@ -351,20 +354,52 @@ all_data_reproj |>
   arrange(desc(n))
 ```
 
+It’s at this point I go into a detailed look at the spatial distribution
+and chemical inventory of each activity:
+
 ## Density by activity
 
 One section per activity, ordered by number of measurements (n, from the
 table above).
 
-### Overvåking av forurenset sjøbunn
-
-n = 49602.
+Each activity also gets a plot of how many distinct substances were
+monitored per year, one line per `SubGroupID`:
 
 Code
 
 ``` r
 
-plot_density(
+plot_substances_per_year <- function(activity) {
+  all_data_reproj_arctic |>
+    st_drop_geometry() |>
+    filter(Aktivitet_navn == activity) |>
+    mutate(year = as.integer(substr(Tid_provetak, 1, 4))) |>
+    left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+    mutate(SubGroupID = coalesce(SubGroupID, "Unclassified")) |>
+    reframe(
+      .by = c(year, SubGroupID),
+      n_substances = n_distinct(Parameter_navn)
+    ) |>
+    ggplot(aes(x = year, y = n_substances, colour = SubGroupID)) +
+    geom_line() +
+    geom_point() +
+    labs(x = "Year", y = "Unique substances monitored", colour = "SubGroupID")
+}
+```
+
+### Overvåking av forurenset sjøbunn
+
+n = 49602.
+
+- Biggest driver. Lots of metals, some PAHs, PCBs, tinorganic substances
+- Harstad, Tromsø, Bodø
+- Sediment only, except for a subset which I suspect are miscoded?
+
+Code
+
+``` r
+
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av forurenset sjøbunn"),
   "Sediment saltvann",
@@ -373,17 +408,53 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-10-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-10-1.png)
-
-### Kartlegging av miljøgifter i sedimenter - MAREANO
-
-n = 40808.
+[![](vannmiljo-expect-data_files/figure-html/map-overvaking-av-forurenset-sjobunn-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-overvaking-av-forurenset-sjobunn-1.png)
 
 Code
 
 ``` r
 
-plot_density(
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av forurenset sjøbunn") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-forurenset-sjobunn-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-forurenset-sjobunn-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Overvåking av forurenset sjøbunn")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-forurenset-sjobunn-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-forurenset-sjobunn-1.png)
+
+### Kartlegging av miljøgifter i sedimenter - MAREANO
+
+n = 40808.
+
+- Next biggest dataset.
+- Largely open ocean, with the exception of some points around Narvik
+  (but not densely monitored)
+- Haven’t checked the open ocean hotspots against wrecks/dumping sites,
+  or offshore facilities
+- Almost only PAHs
+
+Code
+
+``` r
+
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(
       Aktivitet_navn == "Kartlegging av miljøgifter i sedimenter - MAREANO"
@@ -394,9 +465,65 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-11-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-11-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-kartlegging-av-miljogifter-i-sedimenter-mareano-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-kartlegging-av-miljogifter-i-sedimenter-mareano-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Kartlegging av miljøgifter i sedimenter - MAREANO"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-kartlegging-av-miljogifter-i-sedimenter-mareano-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-kartlegging-av-miljogifter-i-sedimenter-mareano-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Kartlegging av miljøgifter i sedimenter - MAREANO")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-kartlegging-av-miljogifter-i-sedimenter-mareano-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-kartlegging-av-miljogifter-i-sedimenter-mareano-1.png)
 
 ### Miljøovervåking akvakulturanlegg
+
+- Almost only copper and zinc
+- Hotspots around Fauske, Alta, Finnsnes
+- Probably not a useful source of data? Depends how spatially specific
+  we want to be, but I assume that copper/zinc pollution from fish farms
+  is localised and sediment-associated
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Miljøovervåking akvakulturanlegg") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-miljoovervaking-akvakulturanlegg-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-miljoovervaking-akvakulturanlegg-1.png)
 
 n = 12273.
 
@@ -404,7 +531,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Miljøovervåking akvakulturanlegg"),
   "Sediment saltvann",
@@ -413,9 +540,26 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-12-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-12-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-miljoovervaking-akvakulturanlegg-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-miljoovervaking-akvakulturanlegg-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Miljøovervåking akvakulturanlegg")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-miljoovervaking-akvakulturanlegg-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-miljoovervaking-akvakulturanlegg-1.png)
 
 ### Overvåking av påvirkning fra industri
+
+- Probably our best best for identfying historically contaminated fjords
+  which aren’t also major settlements
+- Hotpots: Hammerfest, Mosjøen, Finnsnes/Lenvikk, the square to the SW
+  of Narvik
+- Metals, PAHs
 
 n = 5899.
 
@@ -423,7 +567,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra industri"),
   "Sediment saltvann",
@@ -432,9 +576,42 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-13-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-13-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-industri-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-industri-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra industri") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-industri-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-industri-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Overvåking av påvirkning fra industri")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-industri-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-industri-1.png)
 
 ### Annet
+
+- Mixed bag, most monitoring tends to be in non-urban areas
+- Mostly copper monitoring in sediment, but some other heavy metals and
+  organic pollutants.
 
 n = 5770.
 
@@ -442,7 +619,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Annet"),
   "Sediment saltvann",
   "viridis",
@@ -450,9 +627,42 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-14-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-14-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-annet-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-annet-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Annet") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-annet-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-annet-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Annet")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-annet-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-annet-1.png)
 
 ### Tiltaksorientert overvåking
+
+- Most focused on Tromsø - I’m not certain what counts as a Tiltak and
+  what doesn’t.
+- PAH in water, metals in sediment
 
 n = 3199.
 
@@ -460,7 +670,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Tiltaksorientert overvåking"),
   "Sediment saltvann",
@@ -469,9 +679,40 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-15-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-15-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-tiltaksorientert-overvaking-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-tiltaksorientert-overvaking-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Tiltaksorientert overvåking") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-tiltaksorientert-overvaking-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-tiltaksorientert-overvaking-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Tiltaksorientert overvåking")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-tiltaksorientert-overvaking-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-tiltaksorientert-overvaking-1.png)
 
 ### Mikroplast i kystområder, elver og innsjøer (Mikronor)
+
+- Ignoring
 
 n = 3098.
 
@@ -479,7 +720,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(
       Aktivitet_navn == "Mikroplast i kystområder, elver og innsjøer (Mikronor)"
@@ -490,9 +731,48 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-16-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-16-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Mikroplast i kystområder, elver og innsjøer (Mikronor)"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year(
+  "Mikroplast i kystområder, elver og innsjøer (Mikronor)"
+)
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor-1.png)
 
 ### Effekter av mudring, utfylling og dumping
+
+- Mostly at a site south of Harstad, and another site NE of Vadsø
+- I am personally surprised that Hammerfest isn’t included, because
+  there was a lot of dredging to clean up the harbour there
+- Good range of metals and PAHs, also PBCs, tin-organics
 
 n = 2936.
 
@@ -500,7 +780,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Effekter av mudring, utfylling og dumping"),
   "Sediment saltvann",
@@ -509,9 +789,44 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-17-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-17-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-effekter-av-mudring-utfylling-og-dumping-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-effekter-av-mudring-utfylling-og-dumping-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Effekter av mudring, utfylling og dumping"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-effekter-av-mudring-utfylling-og-dumping-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-effekter-av-mudring-utfylling-og-dumping-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Effekter av mudring, utfylling og dumping")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-effekter-av-mudring-utfylling-og-dumping-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-effekter-av-mudring-utfylling-og-dumping-1.png)
 
 ### Overvåking av avrenning fra landdeponi
+
+- Only two grid squares, semi-remote
+- Well-balanced selection of stressors but small sample size
 
 n = 971.
 
@@ -519,7 +834,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av avrenning fra landdeponi"),
   "Sediment saltvann",
@@ -528,9 +843,42 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-18-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-18-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-overvaking-av-avrenning-fra-landdeponi-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-overvaking-av-avrenning-fra-landdeponi-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av avrenning fra landdeponi") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-avrenning-fra-landdeponi-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-avrenning-fra-landdeponi-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Overvåking av avrenning fra landdeponi")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-avrenning-fra-landdeponi-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-avrenning-fra-landdeponi-1.png)
 
 ### Miljøgifter i kystområdene (MilKys)
+
+- 7 sediment samples taken from Tromsø harbour (sediment core? so
+  historical data)
+- Tested for nearly everything
 
 n = 938.
 
@@ -538,7 +886,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Miljøgifter i kystområdene (MilKys)"),
   "Sediment saltvann",
@@ -547,9 +895,40 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-19-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-19-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-miljogifter-i-kystomradene-milkys-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-miljogifter-i-kystomradene-milkys-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Miljøgifter i kystområdene (MilKys)") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-miljogifter-i-kystomradene-milkys-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-miljogifter-i-kystomradene-milkys-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Miljøgifter i kystområdene (MilKys)")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-miljogifter-i-kystomradene-milkys-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-miljogifter-i-kystomradene-milkys-1.png)
 
 ### Effekter av planlagt arealbruk
+
+- Kirkenes, and two squares in the vicinity of Narvik
+- Good range of PAHs, PCBs, Metals in sediment.
 
 n = 919.
 
@@ -557,7 +936,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Effekter av planlagt arealbruk"),
   "Sediment saltvann",
@@ -566,9 +945,41 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-20-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-20-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-effekter-av-planlagt-arealbruk-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-effekter-av-planlagt-arealbruk-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Effekter av planlagt arealbruk") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-effekter-av-planlagt-arealbruk-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-effekter-av-planlagt-arealbruk-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Effekter av planlagt arealbruk")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-effekter-av-planlagt-arealbruk-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-effekter-av-planlagt-arealbruk-1.png)
 
 ### Problemkartlegging
+
+- Alta, Hammerfest, multiple squares in vicinity of Harstad
+- Mostly metals but some PAHs and other substances
 
 n = 896.
 
@@ -576,7 +987,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Problemkartlegging"),
   "Sediment saltvann",
   "viridis",
@@ -584,9 +995,42 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-21-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-21-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-problemkartlegging-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-problemkartlegging-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Problemkartlegging") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-problemkartlegging-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-problemkartlegging-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Problemkartlegging")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-problemkartlegging-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-problemkartlegging-1.png)
 
 ### Overvåking av påvirkning fra flyplasser
+
+- Mostly Tromsø, some Alta
+- Iron, manganese, few organic substances, occasional PFA except for
+  N-EtFOSAA which is measured a lot.
 
 n = 693.
 
@@ -594,7 +1038,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra flyplasser"),
   "Sediment saltvann",
@@ -603,17 +1047,49 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-22-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-22-1.png)
-
-### Overvåking av påvirkning fra avløp
-
-n = 583.
+[![](vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-flyplasser-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-flyplasser-1.png)
 
 Code
 
 ``` r
 
-plot_density(
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra flyplasser") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-flyplasser-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-flyplasser-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Overvåking av påvirkning fra flyplasser")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-flyplasser-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-flyplasser-1.png)
+
+### Overvåking av påvirkning fra avløp
+
+n = 583.
+
+- Hammerfest but mostly Tromsø
+- Metals and PAHs, plus some minimal extras
+
+Code
+
+``` r
+
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra avløp"),
   "Sediment saltvann",
@@ -622,9 +1098,40 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-23-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-23-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-avlop-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-avlop-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra avløp") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-avlop-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-avlop-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Overvåking av påvirkning fra avløp")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-avlop-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-avlop-1.png)
 
 ### Tilførselsprogrammet
+
+- Looks irrelevant
 
 n = 578.
 
@@ -632,7 +1139,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Tilførselsprogrammet"),
   "Sediment saltvann",
   "viridis",
@@ -640,17 +1147,47 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-24-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-24-1.png)
-
-### Overvåking av påvirkning fra vegtrafikk
-
-n = 465.
+[![](vannmiljo-expect-data_files/figure-html/map-tilforselsprogrammet-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-tilforselsprogrammet-1.png)
 
 Code
 
 ``` r
 
-plot_density(
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Tilførselsprogrammet") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-tilforselsprogrammet-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-tilforselsprogrammet-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Tilførselsprogrammet")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-tilforselsprogrammet-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-tilforselsprogrammet-1.png)
+
+### Overvåking av påvirkning fra vegtrafikk
+
+n = 465.
+
+- Metals in some not especially urban zones
+
+Code
+
+``` r
+
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra vegtrafikk"),
   "Sediment saltvann",
@@ -659,9 +1196,40 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-25-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-25-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-vegtrafikk-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-overvaking-av-pavirkning-fra-vegtrafikk-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra vegtrafikk") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-vegtrafikk-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-overvaking-av-pavirkning-fra-vegtrafikk-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Overvåking av påvirkning fra vegtrafikk")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-vegtrafikk-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-overvaking-av-pavirkning-fra-vegtrafikk-1.png)
 
 ### Myndighetspålagt forurensningsovervåking
+
+- Mixed bag of metals in some urban areas
 
 n = 445.
 
@@ -669,7 +1237,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Myndighetspålagt forurensningsovervåking"),
   "Sediment saltvann",
@@ -678,9 +1246,43 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-26-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-26-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-myndighetspalagt-forurensningsovervaking-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-myndighetspalagt-forurensningsovervaking-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Myndighetspålagt forurensningsovervåking"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-myndighetspalagt-forurensningsovervaking-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-myndighetspalagt-forurensningsovervaking-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Myndighetspålagt forurensningsovervåking")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-myndighetspalagt-forurensningsovervaking-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-myndighetspalagt-forurensningsovervaking-1.png)
 
 ### Basisovervåking - påvirka områder
+
+- Metal/PAH/PCB/tin workup in two squares SW of Svolvær
 
 n = 324.
 
@@ -688,7 +1290,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Basisovervåking - påvirka områder"),
   "Sediment saltvann",
@@ -697,9 +1299,39 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-27-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-27-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-basisovervaking-pavirka-omrader-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-basisovervaking-pavirka-omrader-1.png)
+
+Code
+
+``` r
+
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Basisovervåking - påvirka områder") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-basisovervaking-pavirka-omrader-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-basisovervaking-pavirka-omrader-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Basisovervåking - påvirka områder")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-basisovervaking-pavirka-omrader-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-basisovervaking-pavirka-omrader-1.png)
 
 ### Feltspesifikk miljøovervåking på norsk sokkel
+
+- Ignoring.
 
 n = 308.
 
@@ -707,7 +1339,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Feltspesifikk miljøovervåking på norsk sokkel"),
   "Sediment saltvann",
@@ -716,9 +1348,14 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-28-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-28-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-feltspesifikk-miljoovervaking-pa-norsk-sokkel-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-feltspesifikk-miljoovervaking-pa-norsk-sokkel-1.png)
+
+No records above the Arctic Circle for this activity, so there is no
+pollutant heatmap.
 
 ### Kartlegging av nye miljøgifter
+
+- Ignoring
 
 n = 148.
 
@@ -726,7 +1363,7 @@ Code
 
 ``` r
 
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Kartlegging av nye miljøgifter"),
   "Sediment saltvann",
@@ -735,17 +1372,52 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-29-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-29-1.png)
-
-### Watch List
-
-n = 147.
+[![](vannmiljo-expect-data_files/figure-html/map-kartlegging-av-nye-miljogifter-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-kartlegging-av-nye-miljogifter-1.png)
 
 Code
 
 ``` r
 
-plot_density(
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Kartlegging av nye miljøgifter") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/heatmap-kartlegging-av-nye-miljogifter-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-kartlegging-av-nye-miljogifter-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Kartlegging av nye miljøgifter")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-kartlegging-av-nye-miljogifter-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-kartlegging-av-nye-miljogifter-1.png)
+
+### Watch List
+
+n = 147.
+
+- According to Vm’s website this is a single point (03.63-85476) near
+  Bodø
+- I don’t know why it doesn’t appear on the map
+- This is a very small sample size, but could be a useful source of
+  organic/medical substances, if that’s a good angle to take (these are
+  watchlist substances, which means they’re more interesting)
+
+Code
+
+``` r
+
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Watch List"),
   "Sediment saltvann",
   "viridis",
@@ -753,76 +1425,50 @@ plot_density(
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-30-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-30-1.png)
+[![](vannmiljo-expect-data_files/figure-html/map-watch-list-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/map-watch-list-1.png)
 
 Code
 
 ``` r
 
-cell_size <- 20000 # metres (UTM 33N)
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Watch List") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
 
-plot_grid_density <- function(data, title, option = "viridis") {
-  ggplot() +
-    geom_sf(
-      data = arctic_context,
-      fill = NA,
-      colour = "grey30",
-      linewidth = 0.2
-    ) +
-    geom_bin_2d(
-      data = data,
-      aes(x = x, y = y),
-      binwidth = c(cell_size, cell_size),
-      boundary = 0, # same grid origin on every map, so maps are comparable
-      alpha = 0.75
-    ) +
-    geom_sf(
-      data = arctic_circle_line,
-      colour = "firebrick",
-      linetype = "dashed",
-      linewidth = 0.6
-    ) +
-    geom_sf(
-      data = norway_cities,
-      shape = 21,
-      fill = "white",
-      colour = "black",
-      size = 1.8
-    ) +
-    geom_text_repel(
-      data = norway_cities,
-      aes(label = city, geometry = geometry),
-      stat = "sf_coordinates",
-      size = 3,
-      bg.colour = "white",
-      bg.r = 0.15,
-      min.segment.length = 0.2,
-      segment.colour = "grey40",
-      max.overlaps = Inf
-    ) +
-    coord_sf(
-      crs = map_crs,
-      xlim = plot_bbox[c("xmin", "xmax")],
-      ylim = plot_bbox[c("ymin", "ymax")],
-      expand = FALSE
-    ) +
-    scale_fill_viridis_c(name = "Measurements", option = option) +
-    theme_minimal() +
-    theme(axis.title = element_blank()) +
-    labs(title = title)
-}
+[![](vannmiljo-expect-data_files/figure-html/heatmap-watch-list-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/heatmap-watch-list-1.png)
+
+#### Substances monitored per year
+
+Code
+
+``` r
+
+plot_substances_per_year("Watch List")
+```
+
+[![](vannmiljo-expect-data_files/figure-html/substances-per-year-watch-list-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/substances-per-year-watch-list-1.png)
+
+Code
+
+``` r
 
 plot_grid_density(
   all_data_reproj_sf_xy |>
-    filter(
-      Medium_navn == "Sediment saltvann",
-      Aktivitet_navn == "Overvåking av forurenset sjøbunn"
-    ),
-  "Overvåking av forurenset sjøbunn: 20 km grid"
+    filter(Aktivitet_navn == "Overvåking av forurenset sjøbunn"),
+  "Sediment saltvann",
+  "viridis",
+  "Overvåking av forurenset sjøbunn"
 )
 ```
 
-[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-31-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-31-1.png)
+[![](vannmiljo-expect-data_files/figure-html/unnamed-chunk-11-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-data_files/figure-html/unnamed-chunk-11-1.png)
 
 Code
 
@@ -849,7 +1495,8 @@ summarise_overlaps <- function(idx, max_names = 3) {
   shown
 }
 
-cell_table <- function(data, cell_size = 10000, top_n = 15) {
+cell_table <- function(data, top_n = 15) {
+  # uses the global cell_size, as the maps do
   cells <- data |>
     st_drop_geometry() |>
     mutate(
@@ -914,18 +1561,18 @@ all_data_reproj_sf_xy |>
 
 | nearest_city | km_to_city | water_bodies | measurements | sites | per_site | share |
 |:---|---:|:---|---:|---:|---:|:---|
-| Harstad | 4 | Bergsvågen, Stangnes, Vågsfjorden (+5 more) | 8233 | 237 | 34.7 | 16.7% |
-| Tromsdalen | 3 | Tromsøysundet - Tromsø, Tromsdalselva-Utløp, Tromsdalen småbåthavn (+4 more) | 6048 | 74 | 81.7 | 12.3% |
-| Bodø | 3 | Saltfjorden-ytre, Landegodefjorden, Hjartøysundet - Nyholmsundet (+2 more) | 5982 | 144 | 41.5 | 12.2% |
-| Harstad | 65 | Andenes - Midt Andfjorden, Andfjorden - Vest, Andenes (+1 more) | 2160 | 54 | 40.0 | 4.4% |
-| Hammerfest | 5 | Rypklubben, Sørøysundet, Rypefjorden (+1 more) | 1528 | 34 | 44.9 | 3.1% |
-| Hammerfest | 6 | Revsbotn-ytre, Kvalfjorden, Hammerfest Havn (+1 more) | 1305 | 26 | 50.2 | 2.7% |
-| Vadsø | 58 | Blodskytodden - Vardø fyr, Vardø fyr - Kibergneset, Østervågen (+3 more) | 1089 | 30 | 36.3 | 2.2% |
-| Vadsø | 133 | Kifjorden, Laksefjorden-ytre, Laksefjorden-indre (+1 more) | 972 | 31 | 31.4 | 2.0% |
-| Kaldsletta | 80 | Fugløyfjorden | 894 | 24 | 37.2 | 1.8% |
-| Hammerfest | 91 | Honningsvåg havn, Even Hansen bukta, Kamøyfjorden (+5 more) | 816 | 26 | 31.4 | 1.7% |
-| Svolvær | 49 | Moskenes - Flakstad, Vestfjorden-midtre, Napp (+5 more) | 803 | 26 | 30.9 | 1.6% |
-| Vadsø | 3 | Varangerfjorden-indre Finnmark, Varangerfjorden-ytre nordside, Vadsø havn øst (+2 more) | 756 | 21 | 36.0 | 1.5% |
-| Mo i Rana | 2 | Ranfjorden - Mo | 755 | 20 | 37.8 | 1.5% |
-| Hammerfest | 58 | Lopphavet, Hasfjorden, Markeila (+2 more) | 697 | 21 | 33.2 | 1.4% |
-| Vadsø | 130 | Vevikneset, Mehamnsfjorden, Kinnarodden - Vardnesodden (+3 more) | 693 | 22 | 31.5 | 1.4% |
+| Harstad | 9 | Bergsvågen, Astafjorden, Stangnes (+6 more) | 8504 | 245 | 34.7 | 17.3% |
+| Tromsø | 4 | Balsfjorden, Kaldfjorden- ytre midtre, Kaldfjorden- indre midtre (+15 more) | 6851 | 96 | 71.4 | 13.9% |
+| Bodø | 8 | Saltfjorden-ytre, Landegodefjorden, Helligvær - ytterside Landegode (+3 more) | 6522 | 163 | 40.0 | 13.3% |
+| Harstad | 58 | Andenes - Midt Andfjorden, Midt Andfjorden - Kasodden, Andfjorden - Vest (+3 more) | 2160 | 54 | 40.0 | 4.4% |
+| Hammerfest | 12 | Rypklubben, Sørøysundet, Revsbotn-ytre (+9 more) | 1528 | 34 | 44.9 | 3.1% |
+| Hammerfest | 12 | Revsbotn-ytre, Kvalfjorden, Hammerfest Havn (+2 more) | 1413 | 30 | 47.1 | 2.9% |
+| Vadsø | 59 | Blodskytodden - Vardø fyr, Makkaur - Blodskytodden, Vardø fyr - Kibergneset (+4 more) | 1089 | 30 | 36.3 | 2.2% |
+| Vadsø | 126 | Kifjorden, Oksefjorden, Laksefjorden-ytre (+4 more) | 972 | 31 | 31.4 | 2.0% |
+| Hammerfest | 56 | Fruholmen fyr - Hjelmsøya, Rolvsøysundet, Masøyfjorden-nord (+9 more) | 918 | 26 | 35.3 | 1.9% |
+| Harstad | 36 | Andfjorden - Vest, Gavlfjorden, Tranesvågen (+6 more) | 900 | 25 | 36.0 | 1.8% |
+| Tromsdalen | 80 | Kvænangen - Ytre, Fugløyfjorden, Lauksundet (+3 more) | 894 | 24 | 37.2 | 1.8% |
+| Hammerfest | 85 | Honningsvåg havn, Even Hansen bukta, Lafjorden (+10 more) | 870 | 28 | 31.1 | 1.8% |
+| Vadsø | 123 | Vevikneset, Mehamnsfjorden, Kinnarodden - Vardnesodden (+7 more) | 855 | 28 | 30.5 | 1.7% |
+| Svolvær | 55 | Moskenes - Flakstad, Vestfjorden-midtre, Ramberg havn (+17 more) | 803 | 26 | 30.9 | 1.6% |
+| Vadsø | 10 | Varangerfjorden-indre Finnmark, Varangerfjorden-ytre nordside, Vadsø havn øst (+2 more) | 756 | 21 | 36.0 | 1.5% |

@@ -1,0 +1,361 @@
+# Vanmniljø Arctic/Marine Exploration
+
+Through a process of not exactly scientific prioritisation (see
+vannmiljø-expect-data.qmd) we’ve arrived at a more-or-less reasonable
+list of areas which I think merit futher attention. I’m desperate to
+start working with more specific locations, because I think doing stuff
+at the national level has a lot of challenges. We’ll work with the same
+arctic-saltwater/saltwater sediment dataset we have before:
+
+Code
+
+``` r
+
+library(arrow)
+library(here)
+library(dplyr)
+library(sf)
+library(ggplot2)
+library(readxl)
+library(ggrepel)
+library(patchwork)
+```
+
+Code
+
+``` r
+
+WaterRegistrationExport_NO_Jan10_Jan25_SV <- read_parquet(
+  here(
+    "inst",
+    "example_datasets",
+    "registrations",
+    "WaterRegistrationExport-NO-Jan10-Jan25-SV.parquet"
+  )
+)
+
+WaterRegistrationExport_NO_Jan10_Jan25_SedSV <- read_parquet(
+  here(
+    "inst/example_datasets/registrations/WaterRegistrationExport-NO-Jan10-Jan25-SedSV.parquet"
+  )
+)
+
+pollutants <- read_excel(
+  here("data/raw/vannmiljo/Vannmiljø_Miljøgifter_2026-09-29.xlsx")
+)
+
+all_data <- add_row(
+  WaterRegistrationExport_NO_Jan10_Jan25_SV,
+  WaterRegistrationExport_NO_Jan10_Jan25_SedSV
+)
+
+arctic_circle_lat <- 66.5636 # approximate latitude of the Arctic Circle
+
+reproject_4326 <- function(dataset) {
+  dataset |>
+    filter(
+      !is.na(`UTM33 Ost (X)`) &
+        !is.na(`UTM33 Nord (Y)`)
+    ) |>
+    st_as_sf(
+      coords = c("UTM33 Ost (X)", "UTM33 Nord (Y)"),
+      crs = 25833,
+      remove = FALSE
+    ) |>
+    st_transform(4326) |>
+    mutate(LATITUDE = st_coordinates(geometry)[, 2])
+}
+
+all_data_reproj <- all_data |>
+  reproject_4326() |>
+  mutate(arctic = LATITUDE >= arctic_circle_lat)
+# drop rows without spatial data
+
+all_data_reproj_arctic <- all_data_reproj |> filter(arctic)
+```
+
+In my analysis of the expect-specific data I identified the following
+sites:
+
+Counting place names in the prose (code chunks excluded), these are the
+ones the document mentions most:
+
+| Place                                       | Mentions |
+|---------------------------------------------|----------|
+| Tromsø                                      | 7        |
+| Hammerfest                                  | 6        |
+| Harstad                                     | 5        |
+| Narvik                                      | 4        |
+| Alta                                        | 3        |
+| Bodø                                        | 3        |
+| Vadsø                                       | 3        |
+| Finnsnes                                    | 2        |
+| Kaldsletta                                  | 2        |
+| Tysfjorden                                  | 2        |
+| Fauske, Kirkenes, Lenvikk, Mosjøen, Svolvær | 1 each   |
+
+It seems the pragmatic approach would be to start with Tromsø and see
+how long it takes.
+
+Code
+
+``` r
+
+map_crs <- 25833 # ETRS89 / UTM 33N, in metres
+bigger_arctic_bbox <- sf::st_bbox(
+  c(xmin = 4, ymin = 65, xmax = 40, ymax = 75),
+  crs = sf::st_crs(4326)
+)
+
+norway_cities <- read_excel(here("inst", "worldcities.xlsx")) |>
+  filter(iso2 == "NO") |>
+  st_as_sf(coords = c("lng", "lat"), crs = st_crs(4326)) |>
+  st_crop(bigger_arctic_bbox) |>
+  filter(st_coordinates(geometry)[, 2] >= arctic_circle_lat - 1) |>
+  st_transform(map_crs)
+```
+
+## Tromsø
+
+I’m going to use a totally arbitrary starting approach of drawing a 60 x
+60km box around Tromsø and seeing what it hits. Panels show the water
+framework directive (WFD) water bodies, then the number of samples and
+number of distinct pollutants in 3 km grid squares, for seawater and for
+sediment. A sample here is a unique combination of site, sampling time,
+depth and sample number.
+
+Let’s set some bounding boxes: - 60km - 20km - 10km
+
+We don’t immediately know which of these may be the most appropriate.
+
+Code
+
+``` r
+
+tromso_centre <- norway_cities |>
+  filter(city == "Tromsø") |>
+  st_geometry() |>
+  st_coordinates()
+
+# half_width is in km; map_crs units are metres
+st_point_bbox <- function(point, half_width, map_crs) {
+  half_width <- half_width * 1000
+  st_bbox(
+    c(
+      xmin = point[1] - half_width,
+      xmax = point[1] + half_width,
+      ymin = point[2] - half_width,
+      ymax = point[2] + half_width
+    ),
+    crs = st_crs(map_crs)
+  )
+}
+
+
+tromso_box_60 <- st_point_bbox(tromso_centre, 30, 25833)
+tromso_box_20 <- st_point_bbox(tromso_centre, 10, 25833)
+tromso_box_10 <- st_point_bbox(tromso_centre, 5, 25833)
+
+tromso_box <- st_as_sfc(tromso_box_60) # the 60 km box used for the grid below
+
+# the smaller boxes as sf polygons, so they can be overlaid on maps
+tromso_boxes <- st_sf(
+  box = c("20 km", "10 km"),
+  geometry = c(st_as_sfc(tromso_box_20), st_as_sfc(tromso_box_10))
+)
+```
+
+Code
+
+``` r
+
+wfd_bodies <- read_sf(here(
+  "inst",
+  "shapefiles",
+  "vannforekomster_kyst_arctic.gpkg"
+)) |>
+  st_transform(map_crs) |>
+  st_crop(tromso_box_60) |>
+  arrange(navn) |>
+  mutate(wfd_no = sprintf("%02d", row_number()))
+
+land <- rnaturalearth::ne_countries(
+  scale = "large",
+  continent = "Europe",
+  returnclass = "sf"
+) |>
+  st_transform(map_crs) |>
+  st_crop(tromso_box_60)
+
+tromso_cities <- norway_cities |> st_filter(tromso_box)
+
+# 3 km grid over the box (cell numbers are per cell, not per site)
+grid <- st_make_grid(tromso_box, cellsize = 3000) |>
+  st_sf(geometry = _) |>
+  mutate(cell = row_number())
+
+tromso_data <- all_data_reproj |>
+  st_transform(map_crs) |>
+  st_filter(tromso_box)
+
+grid_summary <- tromso_data |>
+  st_join(grid) |>
+  st_drop_geometry() |>
+  filter(!is.na(cell)) |>
+  reframe(
+    .by = c(cell, Medium_navn),
+    samples = n_distinct(Vannlokalitet_kode, Tid_provetak, Ovre_dyp, Provenr),
+    pollutants = n_distinct(Parameter_navn)
+  )
+
+grid_long <- grid_summary |>
+  tidyr::pivot_longer(
+    c(samples, pollutants),
+    names_to = "metric",
+    values_to = "n"
+  ) |>
+  mutate(
+    metric = factor(
+      metric,
+      c("samples", "pollutants"),
+      c(
+        "Number of samples (3km grid square)",
+        "Number of pollutants (3km grid square)"
+      )
+    )
+  ) |>
+  left_join(grid, by = "cell") |>
+  st_as_sf()
+
+base_map <- function() {
+  list(
+    geom_sf(data = land, fill = "grey92", colour = "grey60", linewidth = 0.2),
+    geom_sf(data = tromso_cities, shape = 21, colour = "red", size = 1.5),
+    coord_sf(
+      xlim = tromso_box_60[c("xmin", "xmax")],
+      ylim = tromso_box_60[c("ymin", "ymax")],
+      expand = FALSE
+    ),
+    theme_minimal(base_size = 9),
+    theme(axis.text = element_blank(), panel.grid = element_blank())
+  )
+}
+city_labels <- geom_text_repel(
+  data = tromso_cities,
+  aes(label = city, geometry = geometry),
+  stat = "sf_coordinates",
+  size = 2.5,
+  bg.colour = "white",
+  bg.r = 0.15,
+  max.overlaps = Inf
+)
+
+
+density_panel <- function(metric, medium, option) {
+  ggplot() +
+    geom_sf(
+      data = wfd_bodies,
+      fill = "#d0ffff",
+      colour = "grey40",
+      linewidth = 0.15
+    ) +
+    geom_sf(
+      data = grid_long |> filter(metric == !!metric, Medium_navn == medium),
+      aes(fill = n),
+      colour = NA,
+      alpha = 0.75
+    ) +
+    geom_sf(
+      data = tromso_boxes,
+      aes(colour = box),
+      fill = NA,
+      linewidth = 0.8
+    ) +
+    scale_fill_viridis_c(option = option, name = NULL) +
+    labs(title = paste(metric, "-", medium))
+}
+```
+
+### WFD water bodies
+
+There are 43 WFD water bodies in our bounding box. This is probably a
+sign that we’ve drawn it too big. It would make the most sense (I think)
+to zoom to the middle
+
+Code
+
+``` r
+
+p_wfd <- ggplot() +
+  geom_sf(
+    data = wfd_bodies,
+    aes(fill = kjemiskTilstand),
+    alpha = 0.7,
+    colour = "grey30",
+    linewidth = 0.2
+  ) +
+  geom_sf_text(
+    data = suppressWarnings(st_centroid(wfd_bodies)),
+    aes(label = wfd_no),
+    size = 2.5,
+    fontface = "bold"
+  ) +
+  geom_sf(
+    data = tromso_boxes,
+    aes(colour = box),
+    fill = NA,
+    linewidth = 0.8
+  ) +
+  scale_colour_manual(values = c("20 km" = "red", "10 km" = "blue")) +
+  city_labels +
+  labs(
+    title = "WFD water bodies, 60km bounding box centered Tromsø",
+    fill = "Chemical status",
+    colour = "Box"
+  )
+
+p_wfd
+```
+
+[![](vannmiljo-expect-case-studies_files/figure-html/unnamed-chunk-6-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-case-studies_files/figure-html/unnamed-chunk-6-1.png)
+
+Code
+
+``` r
+
+wfd_bodies |>
+  st_drop_geometry() |>
+  select(wfd_no, navn, vannforekomst_id, kjemiskTilstand)
+```
+
+### Saltvann
+
+Code
+
+``` r
+
+density_panel("Number of samples (3km grid square)", "Saltvann", "viridis") +
+  density_panel("Number of pollutants (3km grid square)", "Saltvann", "magma")
+```
+
+[![](vannmiljo-expect-case-studies_files/figure-html/unnamed-chunk-8-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-case-studies_files/figure-html/unnamed-chunk-8-1.png)
+
+### Sediment saltvann
+
+Code
+
+``` r
+
+density_panel(
+  "Number of samples (3km grid square)",
+  "Sediment saltvann",
+  "viridis"
+) +
+  density_panel(
+    "Number of pollutants (3km grid square)",
+    "Sediment saltvann",
+    "magma"
+  )
+```
+
+[![](vannmiljo-expect-case-studies_files/figure-html/unnamed-chunk-9-1.png)](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-expect-case-studies_files/figure-html/unnamed-chunk-9-1.png)
