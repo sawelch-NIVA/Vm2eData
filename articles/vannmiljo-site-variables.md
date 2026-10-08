@@ -1,0 +1,511 @@
+# Variables in the Oslo sites export
+
+> **Placeholder article**
+>
+> This is a quick review of the columns in a Vannmiljø water-location
+> (site) export. Not exhaustive, because it’s based on a subset of the
+> data (in this example, 1,315 sites in Oslo kommune). Columns are
+> reproduced in order, names/info correct as of 28/09/2026. Counts and
+> example values are from this file only.
+>
+> This export is the site-level counterpart of the [registration
+> (measurement)
+> export](https://sawelch-niva.github.io/Vm2eData/articles/vannmiljo-data-variables.md):
+> the two are joined on the site code, and several columns here only
+> make sense in that light.
+>
+> My previous experience with a whole-Norway copper dataset is that site
+> polygons are almost (\>99%) never associated with measured
+> concentrations. It seems safe to assume that this will remain the case
+>
+> Quoted passages (in Norwegian, with a short English translation of our
+> own) are copied from the Vannmiljø code documentation page
+> [“Stedfesting”](https://vannmiljokoder.miljodirektoratet.no/location),
+> Miljødirektoratet, copied 28/09/2026. Everything else is our own
+> reading.
+
+### `Vannlokalitet ID` — site ID
+
+**What it is.** Numeric internal ID of the water location. Unique per
+row.
+
+**Format:** Integer, e.g. `2593`, `778`, `13203`. In every row of this
+file it is identical to the numeric part of `Vannlokalitetskode`
+(i.e. `006-2593` → `2593`).
+
+**What we do with it.** Nothing; it carries no information that
+`Vannlokalitetskode` doesn’t. Dropped.
+
+### `Vannlokalitetskode` — site code
+
+**What it is.** The Vannmiljø water-location code, and the key that
+links a site to its measurements. Unique per row. The registration
+export calls the same field `Vannlok_kode`.
+
+> All dataimport stedfestes gjennom knytning til stasjonen(e), med
+> stasjonskoden (‘vannlok_kode’) som koblingsnøkkel.
+>
+> — Vannmiljøkoder, *Stedfesting*
+
+*Translation: all imported data is located by linking to the station(s),
+with the station code (`vannlok_kode`) as the key.*
+
+**Format:** Two parts joined by a hyphen. The documentation describes
+them as follows:
+
+> Når stasjonen er opprettet vil den få en unik stasjonskode
+> (‘vannlok_kode’). Koden består av to kodefelt adskilt av bindestrek.
+> Feltet til høyre for bindestreken er et unikt løpenummer, mens feltet
+> til venstre varierer avhengig av stasjonens beliggenhet: på land, i
+> kystsonen eller i hav.
+>
+> | Beliggenhet | Kode             | Eksempel    |
+> |-------------|------------------|-------------|
+> | Land        | aaa-løpenummer   | 055-27989   |
+> | Kyst        | aa.bb-løpenummer | 02.61-29302 |
+> | Hav         | HAV-løpenummer   | HAV-32334   |
+>
+> Dersom stasjonen opprettes på land (elv eller innsjø), skal koden
+> være: aaa-løpenummer, hvor aaa er vassdragsområdenummer (varierer fra
+> 001 - 247 og 301 - 314 for vassdrag som drenerer inn til Finland eller
+> Sverige).
+>
+> Dersom stasjonen opprettes i kystsonen, slik at den er helt eller
+> delvis innenfor fjordkatalogens dekningsområde, skal koden være:
+> aa.bb-løpenummer, hvor aa og bb utgjør de to første siffergruppene i
+> fjordkatalogens fjordID (hhv. havområde og kystområde). Det betyr at
+> fjordkatalogen har preferanse framfor vassdragsområdene der disse
+> overlapper.
+>
+> Dersom stasjonen opprettes utenfor grunnlinjen, dvs. utenfor
+> fjordkatalogens deknings-område, vil koden alltid være:
+> HAV-løpenummer. Unntaket er Svalbard og sjøområdene omkring med egne
+> vassdragsnummer som varierer fra 401 – 444.
+>
+> — Vannmiljøkoder, *Stedfesting*, “Nye stasjonskoder”
+
+*Translation: the right-hand part is a unique running number. The
+left-hand part depends on location: `aaa` (land) is a catchment-area
+number, `aa.bb` (coast) is the first two groups of the fjord catalogue’s
+fjord ID, and `HAV` (open sea) is used outside the baseline.*
+
+So the prefix is a location code, not a water body ID (that is
+`Vannforekomst ID`). In this file the patterns are `NNN-NNNNN` (490),
+`NN.NN-NNNNN` (475), `NNN-NNNNNN` (206), `NN.NN-NNNNNN` (125),
+`NNN-NNNN` (15) and `NNN-NNN` (4): land codes (`006`, `007`, …) and
+coastal codes (`NN.NN`), with no `HAV` sites in Oslo. The second part is
+the same number as `Vannlokalitet ID`.
+
+**What we do with it.** Join key, and the basis of `SITE_CODE`. The two
+exports name it differently (`Vannlok_kode` vs `Vannlokalitetskode`), so
+our join has to rename one; a good example of column names we can’t rely
+on staying the same. Where one code has measurements under more than one
+geographic feature (e.g. sediment vs. water column) we split it into
+`Vannlok_kode_split` (`-01`, `-02`, …). The final `SITE_CODE` is
+`Vannmiljø_{Vannlok_kode_split}`. The prefix does give a cheap
+land/coast/sea hint, but we don’t currently use it.
+
+### `Vannlokalitetsnavn` — site name
+
+**What it is.** Free-text place name for the station.
+
+> En stasjon skal alltid navngis med et stedsnavn, f.eks. navn på
+> innsjø, elv/bekk eller fjord. Det gir en umiddelbar assosiasjon om
+> hvor lokaliteten befinner seg geografisk. Stedsnavnet kan eventuelt
+> etterfølges av et lokalt stedsnavn for å øke presisjonen, f.eks.
+> «Kragerøfjorden, Strømtangen».
+>
+> — Vannmiljøkoder, *Stedfesting*, “Navn”
+
+*Translation: a station is always named with a place name (lake,
+river/stream, fjord), optionally followed by a local place name for
+precision.*
+
+**Format:** Free text, Norwegian: `Alnsjøen`, `Sognsvatn`,
+`Triungsvatna`. Meant to be mandatory, but missing for 15 of 1,315 sites
+here. Also **not unique**: 1,131 distinct names across 1,300 named sites
+(169 repeats), which is unsurprising for a place name. So it can’t be
+used as a key.
+
+**What we do with it.** Becomes `SITE_NAME`
+(`Vannmiljø Station {name}`). Also used to exclude named sites (e.g. the
+one Svalbard site). TODO: what do we do with the 15 unnamed sites?
+
+### `Betegnelse` — designation
+
+**What it is.** A project-specific station code, usually set by whoever
+created the station for a monitoring programme.
+
+> En stasjon er som regel opprettet i tilknytning til et prosjekt eller
+> overvåkingsprogram, og er ofte betegnet med en prosjektspesifikk
+> stasjonskode, f.eks. «St. 6». Denne koden registreres som betegnelse,
+> og vil vises i parentes sammen med navnet, f.eks. «Bjørnarfjorden
+> (BT92)».
+>
+> — Vannmiljøkoder, *Stedfesting*, “Betegnelse”
+
+*Translation: stations are usually created for a project or programme
+and often carry a project-specific code (e.g. “St. 6”). This is stored
+as the designation and displayed in brackets after the name.*
+
+The documentation also sets conventions for aquaculture (`C1`, `C2`,
+`Cu1`, `Cmerd`, `REF`, following NS 9410:2016) but says there is no
+standard for industry.
+
+**Format:** Free text, mostly `NA` (225 of 1,315). Short codes such as
+`30A`, `HOF 4`, `Grø-Ak`, `LYS sed4`, `pkt2`. 190 distinct values, so
+some are reused across sites, as you’d expect from programme-specific
+codes.
+
+**What we do with it.** Currently dropped. TODO: Vannmiljø itself
+displays it in brackets after the name, so we might do the same in
+`SITE_NAME`. It is the handle a sampler would recognise, but it isn’t a
+key (reused, mostly empty).
+
+### `Beskrivelse` — description
+
+**What it is.** Free-text extra information about the station’s location
+or circumstances.
+
+> Dersom det er behov for å gi mer utfyllende informasjon om stasjonens
+> beliggenhet eller andre vesentlige forhold ved lokaliteten, kan det
+> gjøres i beskrivelsesfeltet. Eksempel på innhold i beskrivelsesfeltet:
+> «Økokyst Nordsjøen Nord. Marin bløtbunnsfauna. Basisovervåking - trend
+> (BT92). Tidl. Kystovervåkingsprogrammet, bløtbunnundersøkelser (D60).
+> Vestlandet (region D).»
+>
+> — Vannmiljøkoder, *Stedfesting*, “Beskrivelse”
+
+*Translation: used for fuller information about the station’s position
+or other important conditions; the example gives programme, fauna type
+and region.*
+
+**Format:** Free text, Norwegian, often long, sometimes with embedded
+line breaks. Present for 987 sites but only 368 distinct values, so much
+of it is boilerplate. Content varies from
+`Oligotrof/dystrof, middels kalkrik sjø` to programme names and report
+references (e.g. `NIVA-rapport OR-5569`).
+
+**What we do with it.** Folded into `SITE_COMMENT` as
+`Vm Original Comment: {Beskrivelse}`. Worth reading: report references
+here are one of the few pointers to the metadata that isn’t in Vannmiljø
+itself.
+
+### `Objekttype` — geometry type
+
+**What it is.** Whether the site is a point or a polygon. Not covered on
+the documentation page.
+
+**Format:** Controlled. `point` (1,223) or `polygon` (92) in this file.
+Every site, polygon or not, has a single coordinate pair.
+
+**What we do with it.** Only `point` sites are kept; eData sites are
+points. *Decision: Filter.* TODO: the first few polygon sites in this
+file are lakes (`Alnsjøen`, `Sognsvatn`). If lakes are systematically
+polygons, this filter removes them wholesale; check that’s what we want,
+and whether the single coordinate for a polygon is a centroid.
+
+### `Midlertidig` — temporary
+
+**What it is.** Presumably whether the site is a temporary one. Not
+covered on the documentation page.
+
+**Format:** `Nei` for all 1,315 rows.
+
+**What we do with it.** Dropped.
+
+### `Dato opprettet` — date created
+
+**What it is.** When the site record was created in Vannmiljø. Not a
+sampling date. Not covered on the documentation page.
+
+**Format:** A date-time as text, `2009-08-30 16:44:00`. Runs from
+2009-08-30 to 2026-09-02. Only 544 distinct values for 1,315 sites,
+because sites were created in bulk (many share a 2009 timestamp).
+
+**What we do with it.** Dropped. Don’t use it as a proxy for when a site
+was first sampled.
+
+### `Innsjonr` — lake number
+
+**What it is.** Lake number, presumably from the national lake register.
+Not covered on the documentation page.
+
+**Format:** Numeric-looking text (`2512`, `5245`, `302`). Present for
+201 sites, 118 distinct. 174 of the 179 lake (`L`) sites have one, and
+27 river (`R`) sites do too, probably rivers that flow through or from a
+lake.
+
+**What we do with it.** Dropped. TODO: could be useful for linking sites
+on the same lake.
+
+### `Vannforekomst ID` — water body ID
+
+**What it is.** The ID of the WFD (Water Framework Directive) water body
+the site belongs to. Many sites share one, so it is the natural way to
+group sites. It is assigned by proximity when a station is created:
+
+> Når du oppretter ny stasjon vil Vannmiljø søke etter nærmeste
+> vannforekomst og automatisk sette samme vannkategori som
+> vannforekomsten. Er det flere vannforekomster innenfor en radius på
+> 100 m, vil du ha mulighet til å velge vannforekomst.
+>
+> — Vannmiljøkoder, *Stedfesting*, “Vannkategori (obligatorisk)”
+
+*Translation: when a station is created, Vannmiljø searches for the
+nearest water body and automatically gives the station the same water
+category. If there are several within 100 m, the user can choose.*
+
+So the link to a water body is a nearest-match at creation time, not
+something the sampler necessarily checked.
+
+**Format:** Text with the water body type as a suffix. In this file:
+`NNNNNNNNNN-N-C` (532) and `NNNNNNNNNN-C` (64) for coastal, `NNN-NNN-R`
+/ `NNN-NN-R` / `NNN-NNNN-R` for rivers, `NNN-NNN-L` / `NNN-NNNN-L` /
+`NNN-NNNNN-L` for lakes. A further 329 rows look like `5110-11`, which
+doesn’t fit any of these. TODO: find out what that format is. Present
+for all 1,315 sites, but only 98 distinct values.
+
+**What we do with it.** Dropped. TODO: the `-C`/`-R`/`-L` suffix is an
+independent hint at water type that we could cross-check against
+`Vannkategori`.
+
+### `Vannkategori` — water category
+
+**What it is.** Vannmiljø’s classification of the site by water type.
+Mandatory.
+
+> Alle stasjoner må tilhøre en av følgende vannkategorier: Kyst, innsjø,
+> elv, hav, grunnvann, terrestrisk, luft eller ukategorisert. \[…\] De
+> vanligste kategoriene er kyst, innsjø, elv og grunnvann. Hav (H)
+> benyttes dersom prøven er tatt i åpent hav utenfor vannforskriftens
+> virkeområde, dvs. utenfor grunnlinjen. For kartlegging av miljøgifter
+> og spredning av disse er det i tillegg innført kategoriene
+> terrestrisk, luft og ukategorisert. Sistnevnte kategori skal primært
+> benyttes for målinger gjort i kummer eller inn- og utløp av
+> renseanlegg.
+>
+> — Vannmiljøkoder, *Stedfesting*, “Vannkategori (obligatorisk)”
+
+*Translation: every station belongs to one of eight categories (coast,
+lake, river, sea, groundwater, terrestrial, air, uncategorised).
+Terrestrial, air and uncategorised were added for contaminant mapping;
+uncategorised is mainly for measurements in manholes or at
+treatment-plant inlets and outlets.*
+
+**Format:** Single-letter controlled code. Nine values here: `C` (607),
+`R` (328), `L` (179), `J` (109), `U` (69), `G` (14), `A` (5), `S` (3),
+`O` (1). Our lookup reads them as: `C` Kyst (coastal), `R` Elv (river),
+`L` Innsjø (lake), `J` Terrestrisk, `U` Ukategorisert, `G` Grunnvann
+(groundwater), `A` Luft (air), `S` Avløp og overvann (sewage/wastewater
+and stormwater) and `O` Hav (sea). The last two were confirmed against
+the Vannmiljø data download GUI (28/09/2026). Two mismatches with the
+documentation page: it lists eight categories but this file has nine
+codes (`S` isn’t in the list), and it writes the sea category as `H`
+where the file and the GUI use `O`. The documentation seems to be out of
+date on both counts. It appears to be the coded form of the `Type`
+column in the registration export.
+
+**What we do with it.** Looked up against our Vannkategori table to give
+a candidate environmental compartment, sub-compartment and geographic
+feature. This is one of two independent guesses at the compartment (the
+other is `Medium_id` on the measurements), and the two are reconciled
+later. Note that `J`, `A` and `U` are not natural waters, so a “site” in
+Vannmiljø isn’t necessarily a water body. *Decision: Lookup.*
+
+### `Klassifiseres` — is classified
+
+**What it is.** Whether data from the station counts towards WFD status
+classification of its water body. Mandatory.
+
+> Det er mulig å unnta en stasjon fra klassifisering, dvs. at alle data
+> tilknyttet stasjonen ikke skal bidra i klassifisering av
+> vannforekomsten som stasjonen er knyttet til. Det er aktuelt å unnta
+> dersom stasjonen ligger innenfor influensområdet til et punktutslipp,
+> såkalt nærstasjon (Faktaark M-1288/2019). Unntak fra klassifisering må
+> angis med «Nei». En stasjon som ikke skal unntas fra klassifisering må
+> angis med «Ja».
+>
+> — Vannmiljøkoder, *Stedfesting*, “Klassifiseres (obligatorisk)”
+
+*Translation: a station can be exempted from classification,
+e.g. because it lies within the zone of influence of a point discharge
+(a “near-station”, or nærstasjon). Exempt is `Nei`; not exempt is `Ja`.*
+
+So `Nei` means the station is close to a point source, which is exactly
+the sort of thing that matters for interpreting a concentration.
+
+**Format:** `Ja` (1,279) or `Nei` (36).
+
+**What we do with it.** Currently dropped. TODO: probably worth carrying
+into `SITE_COMMENT`; a `Nei` station is by definition one Vannmiljø
+considers influenced by a discharge, and the documentation says
+aquaculture `C1` stations and industrial near-stations are always
+exempted.
+
+### `UTM33 Ost (X)` and `UTM33 Nord (Y)` — coordinates
+
+**What they are.** Easting/northing in ETRS89 / UTM zone 33N
+(EPSG:25833), regardless of where in Norway the site is. There doesn’t
+appear to be any validation of this, so sites will occasionally pop up
+somewhere implausible.
+
+The documentation says stations can be *entered* in either geographic or
+UTM coordinates, and that mixing systems in one import isn’t allowed:
+
+> Koordinatene kan enten oppgis som geografiske koordinater eller
+> UTM-koordinater (EUREF89). Importrutinen tillater ikke at du bruker
+> forskjellige koordinatsystemer i ett og samme import-regneark. \[…\]
+> UTM-koordinater kan oppgis både som heltall og desimaltall med
+> Nord-koordinat (Y) i kolonnen «UtmNord» og Øst-koordinat (X) i
+> kolonnen «UtmOst». I tillegg skal det også oppgis UTM-sone i kolonnen
+> «UtmSone».
+>
+> — Vannmiljøkoder, *Stedfesting*, “Koordinater (obligatorisk)”
+
+*Translation: coordinates are given either as geographic or as UTM
+(EUREF89), one system per import spreadsheet; UTM needs northing,
+easting and a zone.*
+
+So the input may have been in any UTM zone (or in degrees). This export
+reports everything in zone 33 regardless, which means Vannmiljø has
+converted the values on the way in or out, and we can’t tell how well
+from the file alone.
+
+**Format:** Decimal numbers with many digits, e.g. `268382.7201`,
+`6655654.28676667`. Present for all 1,315 sites.
+
+**What we do with them.** Reprojected to WGS 84 (EPSG:4326) to give
+`LATITUDE` and `LONGITUDE`. *Decision: Transform.* But see the next
+entry.
+
+### `Breddegrad` and `Lengdegrad` — latitude and longitude
+
+**What they are.** Latitude and longitude in decimal degrees. In this
+export Vannmiljø has already done the conversion for us.
+
+**Format:** Decimals, e.g. `59.9728`, `10.8491`. Present for all sites,
+and all within Oslo (lat 59.81 to 60.14, lon 10.53 to 10.93).
+Reprojecting the UTM33 columns ourselves reproduces them to within about
+2×10⁻⁹ degrees, so the two agree.
+
+**What we do with them.** Currently ignored, since we reproject from
+UTM33. TODO: check whether the sites exports we downloaded for the
+copper pipeline have these columns too. If they do, we could use them
+directly, or better, keep our own reprojection and use these as a free
+consistency check.
+
+### `Knytt til påvirkning` — linked to pressure
+
+**What it is.** The pressure (source of contamination) the station is
+linked to.
+
+> Faste menyvalg: Akvakultur eller Industri. Skal bare benyttes dersom
+> stasjonen er knyttet til overvåking av påvirkning fra akvakultur
+> (bl.a. MOM-C undersøkelser) og påvirkning fra industri.
+>
+> — Vannmiljøkoder, *Stedfesting*, “Særskilte krav til stasjoner
+> tilknyttet akvakultur og industri”
+
+*Translation: fixed menu choices, aquaculture or industry; only to be
+used when the station monitors impact from aquaculture (including MOM-C
+surveys) or industry.*
+
+**Format:** Almost always `NA` (17 of 1,315). Where present:
+`AKVAKULTUR` (10), `Industri` (6), `INDUSTRI` (1). Despite being a fixed
+menu, the capitalisation is inconsistent, so presumably older records
+were entered differently.
+
+**What we do with it.** Normalised to `Industrial` or `Aquaculture`
+(handling both spellings) and folded into `SITE_COMMENT` as
+`Vm Emission Source: {…}`. Anything else becomes `NA`. Rare, but where
+present it’s exactly the kind of context Vannmiljø otherwise doesn’t
+capture.
+
+### `Lokalitetsnr/AnleggsID` — facility number
+
+**What it is.** The ID of the aquaculture locality or industrial
+facility the station is linked to. Only available when
+`Knytt til påvirkning` is filled in.
+
+> Dette registreringsfeltet blir bare tilgjengelig dersom du har
+> registrert noe under “Knytt til påvirkning”. Akvakultur: Registrer
+> Lokalitetsnummer fra Akvakulturregisteret. Industri: Registrer
+> AnleggID fra kartlag Industribedrifter i Vannmiljø.
+>
+> — Vannmiljøkoder, *Stedfesting*, “Lokalitetsnr eller AnleggID”
+
+*Translation: only available if something is registered under “linked to
+pressure”. Aquaculture: locality number from the Aquaculture Register.
+Industry: facility ID from the “Industribedrifter” map layer in
+Vannmiljø.*
+
+The documentation adds that a station can only be linked to one number
+even if several facilities share it (with the others meant to be listed
+in `Beskrivelse`), so one number is not necessarily the whole story.
+
+**Format:** Numeric, 17 non-missing values, the same number as
+`Knytt til påvirkning`, as you’d expect. Values are `1` (10), `5434`
+(4), `9999` (2) and `0` (1); `0`, `1` and `9999` don’t look like real
+register numbers.
+
+**What we do with it.** Dropped.
+
+### `Referansestasjon` — reference station
+
+**What it is.** Not covered on the documentation page under this name,
+but the word it contains, *nærstasjon* (near-station), is defined under
+`Klassifiseres` above as a station within the zone of influence of a
+point discharge. The documentation also uses `REF` as an aquaculture
+designation for reference stations.
+
+**Format:** `NÆRSTASJON` for 12 sites, otherwise `NA`.
+
+**What we do with it.** Dropped. TODO: the column is named “reference
+station” but holds “near-station”, which is close to the opposite of a
+reference. Confirm what it means, and whether it should feed into the
+interpretation of a site as contaminated.
+
+### `Produksjonsområde` — production area
+
+**What it is.** Presumably the aquaculture production area. Not covered
+on the documentation page.
+
+**Format:** Entirely empty in this export (all 1,315 are `NA`).
+
+**What we do with it.** Dropped.
+
+## Not in this export
+
+The documentation lists station fields that are absent from this file,
+most notably height:
+
+> Stasjonens høyde angis i meter (m) relativt til havoverflate (h.o.h.).
+> Vannmiljø vil registrere høyde automatisk når du oppretter stasjonen.
+> \[…\] Ligger stasjonen i kystvann, settes høyden automatisk til 0.
+> Dersom stasjonen er opprettet for prøvetaking av marine bunndyr- eller
+> sedimenter, kan du registrere «Høyde» som dybde av sjøbunnen angitt
+> med negativt fortegn.
+>
+> — Vannmiljøkoder, *Stedfesting*, “Høyde (obligatorisk)”
+
+*Translation: height in metres above sea level, recorded automatically
+on creation. Coastal stations are set to 0; for marine sediment or
+benthos stations it may instead be the seabed depth, entered as a
+negative number.*
+
+Height is described as mandatory, but there’s no such column here. Our
+sites table sets `ALTITUDE_VALUE` to 0 with a comment that it is
+ignored, which is at least consistent with the coastal rule.
+
+## Open questions
+
+- TODO: which of these columns are stable across Vannmiljø exports, and
+  which have changed name in the past? (`Vannlok_kode` vs
+  `Vannlokalitetskode` already suggests some have.)
+- TODO: what are the `5110-11`-style water body IDs?
+- TODO: is dropping polygon sites what we want for lakes?
+- TODO: our Vannkategori lookup file still labels `S` and `O` as
+  “Sewage?” and “Ocean?”; update it now they’re confirmed.
+- TODO: should `Klassifiseres = Nei` (near-station) be carried through
+  to eData, and if so where?
