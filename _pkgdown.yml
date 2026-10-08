@@ -2,3 +2,45 @@ url: https://sawelch-niva.github.io/Vm2eData/
 template:
   bootstrap: 5
 
+# Own sidebar: the default one asks CRAN/Bioconductor over the network on every
+# build (to add a "View on CRAN" link), which fails on this network.
+home:
+  sidebar:
+    html: pkgdown/sidebar.html
+
+
+articles:
+  - title: Getting and understanding Vannmiljø data
+    desc: >
+      How to get data out of Vannmiljø and what the columns in an export mean.
+    contents:
+      - "articles/vannmiljo-getting-data"
+      - "articles/vannmiljo-data-variables"
+      - "articles/vannmiljo-site-variables"
+
+  - title: Converting to eData
+    desc: >
+      How Vannmiljø records are turned into eData compartments, geographic
+      features and sites.
+    contents:
+      - "articles/vannmiljo-site-compartment-conversion"
+
+  - title: Vannmiljø codelists
+    desc: Activities and pollutants (parameters) as they are coded in Vannmiljø.
+    contents:
+      - "articles/some-activity-notes"
+      - "articles/vannmiljo-pollutants"
+
+  - title: Arctic and marine exploration (EXPECT)
+    desc: >
+      Exploring what Vannmiljø can tell us about mixtures of pollutants in Arctic
+      marine environments.
+    contents:
+      - "articles/vannmiljo-expect-data"
+      - "articles/vannmiljo-data-exploration"
+      - "articles/vannmiljo-expect-case-studies"
+
+  - title: Other datasets
+    desc: Smaller reviews of other data sources.
+    contents:
+      - "articles/milkys"

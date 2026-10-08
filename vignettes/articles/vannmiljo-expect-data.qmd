@@ -9,7 +9,10 @@ format:
     code-fold: true
     df-print: paged
     lightbox: true
-    dpi: 300
+    fig-dpi: 300
+knitr:
+  opts_chunk:
+    dev: ragg_png
 execute:
   warning: false
   message: false
@@ -187,7 +190,9 @@ arctic_label_y <- st_coordinates(arctic_circle_line) |>
   slice_min(abs(X - plot_bbox[["xmax"]]), n = 1) |>
   pull(Y)
 
-plot_density <- function(data, medium_navn, option, title) {
+cell_size <- 20000 # metres (UTM 33N)
+
+plot_grid_density <- function(data, medium_navn, option, title) {
   ggplot() +
     geom_sf(
       data = arctic_context,
@@ -195,14 +200,15 @@ plot_density <- function(data, medium_navn, option, title) {
       colour = "grey30",
       linewidth = 0.2
     ) +
-    geom_hex(
+    geom_bin_2d(
       data = if (is.null(medium_navn)) {
         data
       } else {
         filter(data, Medium_navn == medium_navn)
       },
       aes(x = x, y = y),
-      bins = 60,
+      binwidth = c(cell_size, cell_size),
+      boundary = 0, # same grid origin on every map, so maps are comparable
       alpha = 0.75
     ) +
     geom_sf(
@@ -234,7 +240,7 @@ plot_density <- function(data, medium_navn, option, title) {
       stat = "sf_coordinates",
       size = 3,
       colour = "black",
-      bg.colour = "white", # white halo keeps labels legible over the hexes
+      bg.colour = "white", # white halo keeps labels legible over the cells
       bg.r = 0.15,
       min.segment.length = 0.2,
       segment.colour = "grey40",
@@ -252,12 +258,12 @@ plot_density <- function(data, medium_navn, option, title) {
     ) +
     theme_minimal() +
     theme(axis.title = element_blank()) +
-    labs(title = title)
+    labs(title = title, subtitle = paste0(cell_size / 1000, " km grid"))
 }
 ```
 
 ```{r}
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy,
   "Saltvann",
   "viridis",
@@ -273,7 +279,7 @@ What do we learn? Well, first of all, we don't have a lot of choices when it com
 - Tysfjorden, SW of Narvik
 
 ```{r}
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy,
   "Sediment saltvann",
   "plasma",
@@ -284,7 +290,7 @@ plot_density(
 ## Without aquaculture?
 
 ```{r}
-plot_density(
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn != "Miljøovervåking akvakulturanlegg"),
   "Sediment saltvann",
@@ -323,16 +329,44 @@ all_data_reproj |>
   arrange(desc(n))
 ```
 
+It's at this point I go into a detailed look at the spatial distribution and chemical inventory of each activity:
+
 ## Density by activity
 
 One section per activity, ordered by number of measurements (n, from the table above).
+
+Each activity also gets a plot of how many distinct substances were monitored per year, one line per `SubGroupID`:
+
+```{r}
+plot_substances_per_year <- function(activity) {
+  all_data_reproj_arctic |>
+    st_drop_geometry() |>
+    filter(Aktivitet_navn == activity) |>
+    mutate(year = as.integer(substr(Tid_provetak, 1, 4))) |>
+    left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+    mutate(SubGroupID = coalesce(SubGroupID, "Unclassified")) |>
+    reframe(
+      .by = c(year, SubGroupID),
+      n_substances = n_distinct(Parameter_navn)
+    ) |>
+    ggplot(aes(x = year, y = n_substances, colour = SubGroupID)) +
+    geom_line() +
+    geom_point() +
+    labs(x = "Year", y = "Unique substances monitored", colour = "SubGroupID")
+}
+```
+
 
 ### Overvåking av forurenset sjøbunn
 
 n = 49602.
 
-```{r}
-plot_density(
+- Biggest driver. Lots of metals, some PAHs, PCBs, tinorganic substances
+- Harstad, Tromsø, Bodø
+- Sediment only, except for a subset which I suspect are miscoded?
+
+```{r map-overvaking-av-forurenset-sjobunn}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av forurenset sjøbunn"),
   "Sediment saltvann",
@@ -341,12 +375,37 @@ plot_density(
 )
 ```
 
+```{r heatmap-overvaking-av-forurenset-sjobunn}
+#| fig-height: 9
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av forurenset sjøbunn") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-overvaking-av-forurenset-sjobunn}
+plot_substances_per_year("Overvåking av forurenset sjøbunn")
+```
+
 ### Kartlegging av miljøgifter i sedimenter - MAREANO
 
 n = 40808.
 
-```{r}
-plot_density(
+- Next biggest dataset.
+- Largely open ocean, with the exception of some points around Narvik (but not densely monitored)
+- Haven't checked the open ocean hotspots against wrecks/dumping sites, or offshore facilities
+- Almost only PAHs
+
+```{r map-kartlegging-av-miljogifter-i-sedimenter-mareano}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(
       Aktivitet_navn == "Kartlegging av miljøgifter i sedimenter - MAREANO"
@@ -357,12 +416,53 @@ plot_density(
 )
 ```
 
+```{r heatmap-kartlegging-av-miljogifter-i-sedimenter-mareano}
+#| fig-height: 25
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Kartlegging av miljøgifter i sedimenter - MAREANO"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-kartlegging-av-miljogifter-i-sedimenter-mareano}
+plot_substances_per_year("Kartlegging av miljøgifter i sedimenter - MAREANO")
+```
+
 ### Miljøovervåking akvakulturanlegg
+
+- Almost only copper and zinc
+- Hotspots around Fauske, Alta, Finnsnes
+- Probably not a useful source of data? Depends how spatially specific we want to be, but I assume that copper/zinc pollution from fish farms is localised and sediment-associated
+
+```{r heatmap-miljoovervaking-akvakulturanlegg}
+#| fig-height: 15
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Miljøovervåking akvakulturanlegg") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
 
 n = 12273.
 
-```{r}
-plot_density(
+```{r map-miljoovervaking-akvakulturanlegg}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Miljøovervåking akvakulturanlegg"),
   "Sediment saltvann",
@@ -371,12 +471,22 @@ plot_density(
 )
 ```
 
+#### Substances monitored per year
+
+```{r substances-per-year-miljoovervaking-akvakulturanlegg}
+plot_substances_per_year("Miljøovervåking akvakulturanlegg")
+```
+
 ### Overvåking av påvirkning fra industri
+
+- Probably our best best for identfying historically contaminated fjords which aren't also major settlements
+- Hotpots: Hammerfest, Mosjøen, Finnsnes/Lenvikk, the square to the SW of Narvik
+- Metals, PAHs
 
 n = 5899.
 
-```{r}
-plot_density(
+```{r map-overvaking-av-pavirkning-fra-industri}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra industri"),
   "Sediment saltvann",
@@ -385,12 +495,35 @@ plot_density(
 )
 ```
 
+```{r heatmap-overvaking-av-pavirkning-fra-industri}
+#| fig-height: 16
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra industri") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-overvaking-av-pavirkning-fra-industri}
+plot_substances_per_year("Overvåking av påvirkning fra industri")
+```
+
 ### Annet
+
+- Mixed bag, most monitoring tends to be in non-urban areas
+- Mostly copper monitoring in sediment, but some other heavy metals and organic pollutants.
 
 n = 5770.
 
-```{r}
-plot_density(
+```{r map-annet}
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Annet"),
   "Sediment saltvann",
   "viridis",
@@ -398,12 +531,35 @@ plot_density(
 )
 ```
 
+```{r heatmap-annet}
+#| fig-height: 10
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Annet") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-annet}
+plot_substances_per_year("Annet")
+```
+
 ### Tiltaksorientert overvåking
+
+- Most focused on Tromsø - I'm not certain what counts as a Tiltak and what doesn't.
+- PAH in water, metals in sediment
 
 n = 3199.
 
-```{r}
-plot_density(
+```{r map-tiltaksorientert-overvaking}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Tiltaksorientert overvåking"),
   "Sediment saltvann",
@@ -412,12 +568,34 @@ plot_density(
 )
 ```
 
+```{r heatmap-tiltaksorientert-overvaking}
+#| fig-height: 9
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Tiltaksorientert overvåking") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-tiltaksorientert-overvaking}
+plot_substances_per_year("Tiltaksorientert overvåking")
+```
+
 ### Mikroplast i kystområder, elver og innsjøer (Mikronor)
+
+- Ignoring
 
 n = 3098.
 
-```{r}
-plot_density(
+```{r map-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(
       Aktivitet_navn == "Mikroplast i kystområder, elver og innsjøer (Mikronor)"
@@ -428,12 +606,41 @@ plot_density(
 )
 ```
 
+```{r heatmap-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor}
+#| fig-height: 7
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Mikroplast i kystområder, elver og innsjøer (Mikronor)"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-mikroplast-i-kystomrader-elver-og-innsjoer-mikronor}
+plot_substances_per_year(
+  "Mikroplast i kystområder, elver og innsjøer (Mikronor)"
+)
+```
+
 ### Effekter av mudring, utfylling og dumping
+
+- Mostly at a site south of Harstad, and another site NE of Vadsø
+- I am personally surprised that Hammerfest isn't included, because there was a lot of dredging to clean up the harbour there
+- Good range of metals and PAHs, also PBCs, tin-organics
 
 n = 2936.
 
-```{r}
-plot_density(
+```{r map-effekter-av-mudring-utfylling-og-dumping}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Effekter av mudring, utfylling og dumping"),
   "Sediment saltvann",
@@ -442,12 +649,38 @@ plot_density(
 )
 ```
 
+```{r heatmap-effekter-av-mudring-utfylling-og-dumping}
+#| fig-height: 8
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Effekter av mudring, utfylling og dumping"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-effekter-av-mudring-utfylling-og-dumping}
+plot_substances_per_year("Effekter av mudring, utfylling og dumping")
+```
+
 ### Overvåking av avrenning fra landdeponi
+
+- Only two grid squares, semi-remote
+- Well-balanced selection of stressors but small sample size 
 
 n = 971.
 
-```{r}
-plot_density(
+```{r map-overvaking-av-avrenning-fra-landdeponi}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av avrenning fra landdeponi"),
   "Sediment saltvann",
@@ -456,12 +689,35 @@ plot_density(
 )
 ```
 
+```{r heatmap-overvaking-av-avrenning-fra-landdeponi}
+#| fig-height: 8
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av avrenning fra landdeponi") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-overvaking-av-avrenning-fra-landdeponi}
+plot_substances_per_year("Overvåking av avrenning fra landdeponi")
+```
+
 ### Miljøgifter i kystområdene (MilKys)
+
+- 7 sediment samples taken from Tromsø harbour (sediment core? so historical data)
+- Tested for nearly everything
 
 n = 938.
 
-```{r}
-plot_density(
+```{r map-miljogifter-i-kystomradene-milkys}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Miljøgifter i kystområdene (MilKys)"),
   "Sediment saltvann",
@@ -470,12 +726,34 @@ plot_density(
 )
 ```
 
+```{r heatmap-miljogifter-i-kystomradene-milkys}
+#| fig-height: 25
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Miljøgifter i kystområdene (MilKys)") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-miljogifter-i-kystomradene-milkys}
+plot_substances_per_year("Miljøgifter i kystområdene (MilKys)")
+```
+
 ### Effekter av planlagt arealbruk
+
+- Kirkenes, and two squares in the vicinity of Narvik
+- Good range of PAHs, PCBs, Metals in sediment. 
 
 n = 919.
 
-```{r}
-plot_density(
+```{r map-effekter-av-planlagt-arealbruk}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Effekter av planlagt arealbruk"),
   "Sediment saltvann",
@@ -484,12 +762,36 @@ plot_density(
 )
 ```
 
+```{r heatmap-effekter-av-planlagt-arealbruk}
+#| fig-height: 8
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Effekter av planlagt arealbruk") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-effekter-av-planlagt-arealbruk}
+plot_substances_per_year("Effekter av planlagt arealbruk")
+```
+
 ### Problemkartlegging
+
+- Alta, Hammerfest, multiple squares in vicinity of Harstad
+- Mostly metals but some PAHs and other substances
 
 n = 896.
 
-```{r}
-plot_density(
+
+```{r map-problemkartlegging}
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Problemkartlegging"),
   "Sediment saltvann",
   "viridis",
@@ -497,12 +799,35 @@ plot_density(
 )
 ```
 
+```{r heatmap-problemkartlegging}
+#| fig-height: 7
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Problemkartlegging") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-problemkartlegging}
+plot_substances_per_year("Problemkartlegging")
+```
+
 ### Overvåking av påvirkning fra flyplasser
+
+- Mostly Tromsø, some Alta
+- Iron, manganese, few organic substances, occasional PFA except for N-EtFOSAA which is measured a lot.
 
 n = 693.
 
-```{r}
-plot_density(
+```{r map-overvaking-av-pavirkning-fra-flyplasser}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra flyplasser"),
   "Sediment saltvann",
@@ -511,12 +836,35 @@ plot_density(
 )
 ```
 
+```{r heatmap-overvaking-av-pavirkning-fra-flyplasser}
+#| fig-height: 7
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra flyplasser") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-overvaking-av-pavirkning-fra-flyplasser}
+plot_substances_per_year("Overvåking av påvirkning fra flyplasser")
+```
+
 ### Overvåking av påvirkning fra avløp
 
 n = 583.
 
-```{r}
-plot_density(
+- Hammerfest but mostly Tromsø
+- Metals and PAHs, plus some minimal extras
+
+```{r map-overvaking-av-pavirkning-fra-avlop}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra avløp"),
   "Sediment saltvann",
@@ -525,12 +873,34 @@ plot_density(
 )
 ```
 
+```{r heatmap-overvaking-av-pavirkning-fra-avlop}
+#| fig-height: 7
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra avløp") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-overvaking-av-pavirkning-fra-avlop}
+plot_substances_per_year("Overvåking av påvirkning fra avløp")
+```
+
 ### Tilførselsprogrammet
+
+- Looks irrelevant
 
 n = 578.
 
-```{r}
-plot_density(
+```{r map-tilforselsprogrammet}
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Tilførselsprogrammet"),
   "Sediment saltvann",
   "viridis",
@@ -538,12 +908,33 @@ plot_density(
 )
 ```
 
+```{r heatmap-tilforselsprogrammet}
+#| fig-height: 13
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Tilførselsprogrammet") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-tilforselsprogrammet}
+plot_substances_per_year("Tilførselsprogrammet")
+```
+
 ### Overvåking av påvirkning fra vegtrafikk
 
 n = 465.
 
-```{r}
-plot_density(
+- Metals in some not especially urban zones
+
+```{r map-overvaking-av-pavirkning-fra-vegtrafikk}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Overvåking av påvirkning fra vegtrafikk"),
   "Sediment saltvann",
@@ -552,12 +943,34 @@ plot_density(
 )
 ```
 
+```{r heatmap-overvaking-av-pavirkning-fra-vegtrafikk}
+#| fig-height: 8
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Overvåking av påvirkning fra vegtrafikk") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-overvaking-av-pavirkning-fra-vegtrafikk}
+plot_substances_per_year("Overvåking av påvirkning fra vegtrafikk")
+```
+
 ### Myndighetspålagt forurensningsovervåking
+
+- Mixed bag of metals in some urban areas
 
 n = 445.
 
-```{r}
-plot_density(
+```{r map-myndighetspalagt-forurensningsovervaking}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Myndighetspålagt forurensningsovervåking"),
   "Sediment saltvann",
@@ -566,12 +979,37 @@ plot_density(
 )
 ```
 
+```{r heatmap-myndighetspalagt-forurensningsovervaking}
+#| fig-height: 4
+all_data_reproj_sf_xy |>
+  filter(
+    arctic,
+    Aktivitet_navn == "Myndighetspålagt forurensningsovervåking"
+  ) |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  filter(n > 10) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-myndighetspalagt-forurensningsovervaking}
+plot_substances_per_year("Myndighetspålagt forurensningsovervåking")
+```
+
 ### Basisovervåking - påvirka områder
+
+- Metal/PAH/PCB/tin workup in two squares SW of Svolvær
 
 n = 324.
 
-```{r}
-plot_density(
+```{r map-basisovervaking-pavirka-omrader}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Basisovervåking - påvirka områder"),
   "Sediment saltvann",
@@ -580,12 +1018,33 @@ plot_density(
 )
 ```
 
+```{r heatmap-basisovervaking-pavirka-omrader}
+#| fig-height: 8
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Basisovervåking - påvirka områder") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-basisovervaking-pavirka-omrader}
+plot_substances_per_year("Basisovervåking - påvirka områder")
+```
+
 ### Feltspesifikk miljøovervåking på norsk sokkel
+
+- Ignoring.
 
 n = 308.
 
-```{r}
-plot_density(
+```{r map-feltspesifikk-miljoovervaking-pa-norsk-sokkel}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Feltspesifikk miljøovervåking på norsk sokkel"),
   "Sediment saltvann",
@@ -594,12 +1053,16 @@ plot_density(
 )
 ```
 
+No records above the Arctic Circle for this activity, so there is no pollutant heatmap.
+
 ### Kartlegging av nye miljøgifter
+
+- Ignoring
 
 n = 148.
 
-```{r}
-plot_density(
+```{r map-kartlegging-av-nye-miljogifter}
+plot_grid_density(
   all_data_reproj_sf_xy |>
     filter(Aktivitet_navn == "Kartlegging av nye miljøgifter"),
   "Sediment saltvann",
@@ -608,12 +1071,35 @@ plot_density(
 )
 ```
 
+```{r heatmap-kartlegging-av-nye-miljogifter}
+#| fig-height: 10
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Kartlegging av nye miljøgifter") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-kartlegging-av-nye-miljogifter}
+plot_substances_per_year("Kartlegging av nye miljøgifter")
+```
+
 ### Watch List
 
 n = 147.
 
-```{r}
-plot_density(
+- According to Vm's website this is a single point (03.63-85476) near Bodø
+- I don't know why it doesn't appear on the map
+- This is a very small sample size, but could be a useful source of organic/medical substances, if that's a good angle to take (these are watchlist substances, which means they're more interesting)
+
+```{r map-watch-list}
+plot_grid_density(
   all_data_reproj_sf_xy |> filter(Aktivitet_navn == "Watch List"),
   "Sediment saltvann",
   "viridis",
@@ -621,70 +1107,34 @@ plot_density(
 )
 ```
 
+```{r heatmap-watch-list}
+#| fig-height: 6
+all_data_reproj_sf_xy |>
+  filter(arctic, Aktivitet_navn == "Watch List") |>
+  group_by(Medium_navn, Parameter_navn) |>
+  reframe(n = n()) |>
+  left_join(pollutants, by = join_by(Parameter_navn == Name)) |>
+  ggplot(mapping = aes(y = Parameter_navn, x = Medium_navn, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_grid(rows = vars(SubGroupID), scales = "free", space = "free")
+```
+
+#### Substances monitored per year
+
+```{r substances-per-year-watch-list}
+plot_substances_per_year("Watch List")
+```
+
 
 ```{r}
-cell_size <- 20000 # metres (UTM 33N)
-
-plot_grid_density <- function(data, title, option = "viridis") {
-  ggplot() +
-    geom_sf(
-      data = arctic_context,
-      fill = NA,
-      colour = "grey30",
-      linewidth = 0.2
-    ) +
-    geom_bin_2d(
-      data = data,
-      aes(x = x, y = y),
-      binwidth = c(cell_size, cell_size),
-      boundary = 0, # same grid origin on every map, so maps are comparable
-      alpha = 0.75
-    ) +
-    geom_sf(
-      data = arctic_circle_line,
-      colour = "firebrick",
-      linetype = "dashed",
-      linewidth = 0.6
-    ) +
-    geom_sf(
-      data = norway_cities,
-      shape = 21,
-      fill = "white",
-      colour = "black",
-      size = 1.8
-    ) +
-    geom_text_repel(
-      data = norway_cities,
-      aes(label = city, geometry = geometry),
-      stat = "sf_coordinates",
-      size = 3,
-      bg.colour = "white",
-      bg.r = 0.15,
-      min.segment.length = 0.2,
-      segment.colour = "grey40",
-      max.overlaps = Inf
-    ) +
-    coord_sf(
-      crs = map_crs,
-      xlim = plot_bbox[c("xmin", "xmax")],
-      ylim = plot_bbox[c("ymin", "ymax")],
-      expand = FALSE
-    ) +
-    scale_fill_viridis_c(name = "Measurements", option = option) +
-    theme_minimal() +
-    theme(axis.title = element_blank()) +
-    labs(title = title)
-}
-
 plot_grid_density(
   all_data_reproj_sf_xy |>
-    filter(
-      Medium_navn == "Sediment saltvann",
-      Aktivitet_navn == "Overvåking av forurenset sjøbunn"
-    ),
-  "Overvåking av forurenset sjøbunn: 20 km grid"
+    filter(Aktivitet_navn == "Overvåking av forurenset sjøbunn"),
+  "Sediment saltvann",
+  "viridis",
+  "Overvåking av forurenset sjøbunn"
 )
-
 ```
 
 
@@ -710,7 +1160,8 @@ summarise_overlaps <- function(idx, max_names = 3) {
   shown
 }
 
-cell_table <- function(data, cell_size = 10000, top_n = 15) {
+cell_table <- function(data, top_n = 15) {
+  # uses the global cell_size, as the maps do
   cells <- data |>
     st_drop_geometry() |>
     mutate(
