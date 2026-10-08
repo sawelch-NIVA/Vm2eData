@@ -7,6 +7,8 @@ format:
   html:
     toc: true
     toc-depth: 3
+execute:
+  freeze: auto
 ---
 
 ::: callout-warning

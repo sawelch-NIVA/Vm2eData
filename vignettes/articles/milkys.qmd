@@ -1,5 +1,19 @@
+---
+title: "Milkys"
+description: >
+  A very quick review of Milkys - it only contains biota data.
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
 
-Because Milkys purports to be Norway's best source for pollution in the marine environment, it merits some closer inspection. In this file I will work through both data from and the reports behind Milkys, to develop a better understanding of the dataset and campaigns.
+Because we assumed Milkys to be the best source for pollution in the marine environment, it merits some closer inspection. In this file I will work through both data from and the reports behind Milkys, to develop a better understanding of the dataset and campaigns.
 
 I will use as sources here the following documents and data:
 
@@ -7,16 +21,20 @@ I will use as sources here the following documents and data:
 2. NIVA's accompanying Contaminants in coastal waters reports, 2020-2024 (inclusive, so 5 reports)
 
 ```{r}
+#| echo: false
 library(arrow)
 library(tidyverse)
 library(here)
-library(sf)
 library(knitr)
 
 vm_milkys_all <- read_parquet(
-  "inst/example_datasets/registrations/WaterRegistrationExport-Milkys-AllPollutants.parquet"
+  here(
+    "inst",
+    "example_datasets",
+    "registrations",
+    "WaterRegistrationExport-Milkys-AllPollutants.parquet"
+  )
 )
-
 ```
 
 
@@ -29,7 +47,8 @@ vm_milkys_all |>
     n_sites = n_distinct(Vannlokalitet_kode),
     media = str_flatten_comma(sort(unique(Medium_navn)))
   ) |>
-  arrange(desc(year))
+  arrange(desc(year)) |>
+  kable()
 ```
 
 So, obvious point here: almost no non-biota media were sampled. In fact, Sediment saltvann is present for only one year in the whole period. This matches what we (and AI) see in the report: 

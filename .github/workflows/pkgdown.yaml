@@ -1,11 +1,11 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+# Not run automatically: the articles read large local-only data files, so the
+# site is built on a machine that has them and pushed with
+#   pkgdown::deploy_to_branch()
+# This workflow is kept as a manual fallback (it will fail on any article that
+# needs data which isn't in the repo).
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-  release:
-    types: [published]
   workflow_dispatch:
 
 name: pkgdown.yaml

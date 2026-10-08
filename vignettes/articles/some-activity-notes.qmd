@@ -1,3 +1,18 @@
+---
+title: "Vanmniljø activities"
+description: >
+  An unfinished exploration of the activties represented in Vannmiljø.
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
+
 Vannmiljø's Aktivitet names/IDs correspond both to formal monitoring campaigns with associated reports (e.g. MILKYS), as well as other sources of data. Vannmiljø gives a list of activities in its [kodeverk website](https://vannmiljokoder.miljodirektoratet.no/activity?q=) (undated). 
 
 In their own words:
@@ -13,14 +28,19 @@ library(arrow)
 library(tidyverse)
 library(here)
 library(sf)
+library(readxl)
 library(knitr)
 
 vm_activities <- read_parquet(
-  "inst/example_datasets/codelists/Vannmiljo_Aktivitet_2026-10-05.parquet"
+  here(
+    "inst",
+    "example_datasets",
+    "codelists",
+    "Vannmiljo_Aktivitet_2026-10-05.parquet"
+  )
 )
 
 vm_activities |> kable()
-
 ```
 
 These descriptions are a useful starting point. Some important points:
@@ -39,7 +59,7 @@ Because the scope of the work I'm currently doing is associated with Arctic/mari
 
 Also as elsewhere, we'll examine the data structure from several subsets.
 
-## Sediment Saltvann, 2010 - 2025
+## Saltvann, 2010 - 2025
 
 `WaterRegistrationExport_NO_Jan10_Jan25_SV` represents the data extracted from Vannmiljø's `Søk i miljøgifter` frontend for Jan 01 2010 - Jan 01 2025, with `Medium` set to `Saltvann`. It is assumed that this data is a representative sample. 
 
@@ -50,8 +70,15 @@ library(arrow)
 
 # 83,277 rows
 WaterRegistrationExport_NO_Jan10_Jan25_SV <- read_parquet(
-  "inst/example_datasets/registrations/WaterRegistrationExport-NO-Jan10-Jan25-SV.parquet"
+  here(
+    "inst",
+    "example_datasets",
+    "registrations",
+    "WaterRegistrationExport-NO-Jan10-Jan25-SV.parquet"
+  )
 )
+
+arctic_circle_lat <- 66.5636 # approximate latitude of the Arctic Circle
 
 reproject_4326 <- function(dataset) {
   dataset |>
@@ -80,7 +107,49 @@ WaterRegistrationExport_NO_Jan10_Jan25_SV_reproj |>
   arrange(desc(n))
 ```
 
-Here we get some bad news. The single biggest dataset is `Mikronor` / `MILP`, which monitors microplastics. We're only interested 
+Here we get some bad news. The single biggest dataset is `Mikronor` / `MILP`, which monitors microplastics. Let's join the pollution lookup and filter down to our main groups of interest.
+
+Based on pollutants.qmd, I expect the main groups of interest to be:
+
+1. Metals (MET)
+2. PAHs (PAH)
+3. PCBs
+4. Organic substances (ORG)
+5. PFAS (PFA)
+6. Tinorganic substances (TIN) 
+
+```{r}
+pollutants <- read_excel(
+  here("data", "raw", "vannmiljo", "Vannmiljø_Miljøgifter_2026-09-29.xlsx")
+)
+
+relevant_pollutants <- c("MET", "PAH", "PCB", "ORG", "PFA", "TIN")
+```
+
+
+```{r}
+sv_pollutants <- left_join(
+  WaterRegistrationExport_NO_Jan10_Jan25_SV_reproj,
+  pollutants,
+  by = join_by(Parameter_id == ParameterID)
+)
+
+sv_pollutants_relevant <- sv_pollutants |>
+  filter(SubGroupID %in% relevant_pollutants, arctic)
+
+sv_pollutants_relevant |>
+  group_by(SubGroupID) |>
+  reframe(n = n()) |>
+  arrange(desc(n))
+```
+
+This leaves us with not a great deal of data. 4,700 data points of saltwater, relevant stressors.
+
+
+
+
+
+
 
 
 
@@ -116,149 +185,3 @@ https://www.vannportalen.no/veiledere/veiledning-i-bruk-av-data-fra-miljounderso
 
 
 However, when we've looked at actual Vm data (see for example the horizontal/vertical slices), basisovervåkning is its own activity.
-
-## Milkys
-
-Milkys is the most obvious source of pollution data relevant to the Arctic/marine, but does that assumption hold?
-
-Using our copper data from the other exploration, let's visualise.
-
-```{r copper-load-data}
-# slightly different format to the more recent extracted data above!
-
-library(arrow)
-library(tidyverse)
-library(here)
-library(sf)
-
-copper_registrations <- read_parquet(
-  here(
-    "inst",
-    "example_datasets",
-    "registrations",
-    "Vm_Copper_2025.12.05.parquet"
-  )
-)
-
-copper_sites <- read_parquet(
-  here(
-    "inst",
-    "example_datasets",
-    "sites",
-    "Vm_Copper_Sites_2025.12.05.parquet"
-  )
-)
-
-copper_dataset <- left_join(
-  copper_registrations,
-  copper_sites,
-  by = join_by(Vannlok_kode == Vannlokalitetskode)
-)
-
-campaign_lookup <- read_csv(here(
-  "data/raw/vannmiljo/Vm_lookup_campaigns_SAW_2024.csv"
-)) |>
-  select(CAMPAIGN, CAMPAIGN_DESCRIPTION_NO) |>
-  rename(Aktivitet_id = CAMPAIGN, Aktivitet_navn = CAMPAIGN_DESCRIPTION_NO)
-
-copper_dataset_reproj <- copper_dataset |>
-  filter(
-    !is.na(`UTM33 Ost (X)`) &
-      !is.na(`UTM33 Nord (Y)`)
-  ) |>
-  st_as_sf(
-    coords = c("UTM33 Ost (X)", "UTM33 Nord (Y)"),
-    crs = 25833,
-    remove = FALSE
-  ) |>
-  st_transform(4326) |>
-  mutate(LATITUDE = st_coordinates(geometry)[, 2])
-
-arctic_circle_lat <- 66.5636 # approximate latitude of the Arctic Circle
-
-highlight_colours <- c(
-  "Other" = "#c3c2b7",
-  "Arctic" = "#2a78d6",
-  "Marine (Kyst)" = "#eb6834",
-  "Arctic & marine" = "#1baf7a"
-)
-
-copper_dataset_highlights <- copper_dataset_reproj |>
-  mutate(
-    arctic = LATITUDE >= arctic_circle_lat,
-    # this time we don't have a type field...
-    marine = ((Medium_id %in% c("VS", "SS", "PSS", "NS")) | # saltvann, Sediment saltvann, Porevann sediment saltvann, Bunnsubstrat saltvann
-      (str_detect(Vannlok_kode, "HAV"))),
-    highlight = case_when(
-      arctic & marine ~ "Arctic & marine",
-      arctic ~ "Arctic",
-      marine ~ "Marine (Kyst)",
-      .default = "Other"
-    ),
-    highlight = factor(highlight, levels = names(highlight_colours))
-  ) |>
-  left_join(campaign_lookup, by = join_by(Aktivitet_id))
-```
-
-Come to think of it, which campaigns look at which compartments? (copper again):
-
-```{r}
-copper_dataset |>
-  group_by(Aktivitet_id, Medium_id) |>
-  reframe(n = n()) |>
-  arrange(desc(n)) |>
-  left_join(campaign_lookup, by = "Aktivitet_id") |>
-  mutate(
-    is_relevant_medium = Medium_id %in% c("SV", "SS", "VS", "PSS"),
-    is_interesting_campaign = Aktivitet_id %in%
-      c("CEMP", "MILK", "TILT", "AKVA"),
-    Medium_id <- fct_inorder(Medium_id),
-    Aktivitet_navn = fct_inorder(Aktivitet_navn)
-  ) |>
-
-  ggplot(aes(y = Aktivitet_navn, x = Medium_id, fill = n)) +
-  geom_tile() +
-  scale_fill_viridis_c(name = "Log sample size") +
-  facet_grid(
-    cols = vars(is_relevant_medium),
-    ,
-    rows = vars(is_interesting_campaign),
-    scales = "free",
-    space = "free"
-  )
-```
-
-This time let's just look at Arctic data
-
-```{r copper-campaign-representation}
-#| fig-cap: "Copper monitoring data points per campaign, 2010-2025."
-
-copper_campaign_rep <- copper_dataset_highlights |>
-  group_by(Aktivitet_id, Aktivitet_navn, highlight) |>
-  filter(highlight == "Arctic & marine") |>
-  reframe(n = n()) |>
-  arrange(desc(n)) |>
-  mutate(Aktivitet_navn = fct_inorder(Aktivitet_navn) |> fct_rev())
-
-
-ggplot(
-  data = copper_campaign_rep,
-  aes(y = Aktivitet_navn, fill = highlight, x = n)
-) +
-  geom_col() +
-  scale_fill_manual(values = highlight_colours, name = NULL) +
-  labs(title = "Copper monitoring data points by campaign; 2010-2025")
-```
-
-So yeah, really not a lot of Milkys. Actuallt, according to the below table, there's only 7 data points! 
-
-```{r}
-copper_campaign_rep
-```
-
-If we count both Milkys and CEMP (Milkys' old name) that still only gives 167 data points that are Artic/marine for the period. Which is suspicious. So let's try an alternative.
-
-Specifically salt water (`Medium == Saltvann`)
-
-
-Milkys isn't even on here! I guess it doesn't do water. 

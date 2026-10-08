@@ -11,3 +11,7 @@ inst/example_datasets/*.xlsx
 inst/shapefiles
 # Temporary Quarto/VS Code vdoc files
 .vdoc.*
+*.rmarkdown
+# Quarto render output next to the articles (pkgdown builds into docs/)
+vignettes/articles/*.html
+vignettes/articles/*_files/

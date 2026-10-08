@@ -31,5 +31,4 @@ Based on my testing, both of these panes return data in the same format. However
 
 ![parameter search](images/vm-ui-search-registration-parameter.png)
 
-![pollutant search
-](images/vm-ui-search-registration-pollutant.png)
+![pollutant search](images/vm-ui-search-registration-pollutant.png)
