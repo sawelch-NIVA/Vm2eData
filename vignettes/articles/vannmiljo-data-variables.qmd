@@ -1,8 +1,9 @@
 ---
-title: "Variables in the Oslo January 2020 export"
+title: "Vannmiljø export columns: a variable-by-variable guide"
 description: >
-  A walk through the columns of a raw Vannmiljø water-registration export,
-  what each one means, and what we do with it on the way to eData.
+  A column-by-column walk through a raw Vannmiljø water-registration export
+  (Oslo, January 2020), covering what each variable means, its format, and how
+  it is handled on the way to eData.
 format:
   html:
     toc: true
@@ -15,6 +16,12 @@ execute:
   freeze: auto
 ---
 
+::: callout-note
+## Summary
+
+A reference guide to the columns of a Vannmiljø `WaterRegistration` export, using Oslo kommune samples from January 2020 as the worked example. For each column it gives what it is, what values it takes, and what the eData conversion does with it (keep, transform, look up, filter or drop). Many entries still carry TODOs or open questions, which are collected at the end.
+:::
+
 ::: callout-warning
 ## Placeholder article
 
@@ -25,7 +32,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What it is.** Vannmiljø water-location code. Foreign key for the WaterLocation/Vannlokasjon table.
 
-**Format:** Typically a two-part numeric code. possible formats include `XX.XX-XXXXX`, `XXX-XXXXX`, `XXX-XXXXXX` and maybe others. I believe the second part identifies unique WFD water bodies, but I@m not sure. 
+**Format:** Typically a two-part numeric code. possible formats include `XX.XX-XXXXX`, `XXX-XXXXX`, `XXX-XXXXXX` and maybe others. I believe the second part identifies unique WFD water bodies, but I'm not sure. 
 
 **What we do with it.** Lookup key, and the basis of `SITE_CODE`. Where one code has measurements under more than one geographic feature (e.g. sediment vs. water column) we split it into `Vannlok_kode_split` (`-01`, `-02`, …) so each eData site has a single, unambiguous type. The final `SITE_CODE` is `Vannmiljø_{Vannlok_kode_split}`. 
 
@@ -43,7 +50,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **Format:** Free text? Most commonly NA, but also `Cq 1`, `1484 Oppstrøms`, `Kon-Aln`. May give better differentiation for sites?
 
-**What we do with it.** No ideam, presumably dropped. 
+**What we do with it.** No idea, presumably dropped. 
 
 # `Type` - (water body) type
 
@@ -61,9 +68,9 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 # `Aktivitet_id` — activity ID
 
-**What it is.** Vannmiljø activity/campaign short code. Useful information, important to intepreting as we may not otherwise capture that e.g. a point is important (because it's, for example, a highly contaminated mine site)
+**What it is.** Vannmiljø activity/campaign short code. Useful information, important to interpreting as we may not otherwise capture that e.g. a point is important (because it's, for example, a highly contaminated mine site)
 
-**Format::** A four-letter code: `TILT`, `MITE`, `MYFO`, etc.
+**Format:** A four-letter code: `TILT`, `MITE`, `MYFO`, etc.
 
 **What we do with it.** Joined to our campaigns lookup to produce `CAMPAIGN_NAME_SHORT`. The README notes that some campaigns are worth excluding (e.g. Milby), which would happen here. *Decision: Lookup + Filter.*
 
@@ -71,7 +78,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What it is.** Whoever commissioned the sampling. Messy and duplicates/typos.
 
-**Format::** Free text. Could be a gov agency (e.g. `MILDIR`, `Miljødirektoratet`, or an institute like `NIVA`).
+**Format:** Free text. Could be a gov agency (e.g. `MILDIR`, `Miljødirektoratet`, or an institute like `NIVA`).
 
 **What we do with it.** Dropped, I think.
 
@@ -79,7 +86,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What it is.** Whoever conducted the sampling
 
-**Format::** Free text. Generally an institute: `NIVA`, `NILU`, etc.
+**Format:** Free text. Generally an institute: `NIVA`, `NILU`, etc.
 
 **What we do with it.** Dropped, I think.
 
@@ -87,7 +94,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What it is.** Vannmiljø activity/campaign long name. The longer counterpart of `Aktivitet_id`, generally quite informative.
 
-**Format::** Free text.
+**Format:** Free text.
 
 **What we do with it.** Handled via the campaign lookup.
 
@@ -97,7 +104,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What we do with them.** Feed the eData parameters table. The current code assumes a single parameter (copper) and stops if there is more than one; this export will almost certainly contain many. TODO: decide how to handle the multi-parameter case. *Decision: Keep / needs work.*
 
-# ``Parameter_casnr` Parameter CAS code
+# `Parameter_casnr` — Parameter CAS code
 
 **What they are.** CAS code for the (chemical) parameter, if relevant
 
@@ -107,7 +114,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 # `Medium_id` and `Medium_navn` — sample medium
 
-**What it is.** Controlled vocabulary capturing environmental compartment, tissue, or occasionally manufactored products that were sampled
+**What it is.** Controlled vocabulary capturing environmental compartment, tissue, or occasionally manufactured products that were sampled
 
 **Format:** `VF` - `Ferskvann`; `BL` - `Biota lever`, etc. 
 
@@ -145,7 +152,7 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What it is.** The upper and lower depth a sample was taken from?
 
-**Format:** A decimal value, including 0, or somethimes `NA`
+**Format:** A decimal value, including 0, or sometimes `NA`
 
 **What we do with it.** Not really sure?
 
@@ -161,11 +168,13 @@ This is a quick review of the data variables in a Vannmiljø export. Not exhaust
 
 **What it is.** Whether the sample was filtered before analysis. `Ufiltrert` is total; `Filtrert` is filtered through a 0.45 µm membrane, the operational "dissolved" fraction.
 
-Format: Almost always `Ufiltrert`, rarely `Filtrert`. Never seen it be `NA`.
+**Format:** Almost always `Ufiltrert`, rarely `Filtrert`. Never seen it be `NA`.
 
 **What we do with it.** Coded to `FRACTIONATION_PROTOCOL` as `Total` or `Filtered 0.45um`, matching eData's own vocabulary. *Decision: Transform.*
 
-`UnntasKlassifisering` -. I don't know what this does
+# `UnntasKlassifisering`
+
+No idea what this does.
 
 # `Vannkategori` — water category
 
@@ -177,7 +186,7 @@ Format: Almost always `Ufiltrert`, rarely `Filtrert`. Never seen it be `NA`.
 
 **What it is.** TODO: the measured value.
 
-**Format**: Always, as far as I know, a number. Never seen it as `NA`, which makes sense.
+**Format:** Always, as far as I know, a number. Never seen it as `NA`, which makes sense.
 
 **What we do with it.** Becomes `MEASURED_VALUE` unchanged. *Decision: Keep.*
 
@@ -220,7 +229,7 @@ No idea. Doesn't seem to store any actual information.
 
 # `Ant_verdier` — number of values
 
-**What it is.** How many underlying observations `Verdi` summarises. In parctical terms, almost always (>90%) `1`, but in some cases `288`?
+**What it is.** How many underlying observations `Verdi` summarises. In practical terms, almost always (>90%) `1`, but in some cases `288`?
 
 **What we do with it.** Becomes `MEASURED_N`. *Decision: Keep.*
 
@@ -230,19 +239,13 @@ No idea. Doesn't seem to store any actual information.
 
 **What we do with it.** Copied to `MEASUREMENT_COMMENT`.  *Decision: Keep.*
 
-# `Arkiv` — arkive
+# `Arkiv` — archive
 
 **What it is.** Unclear. Presumably records if data is archived. So far, only `N`.
 
 **What we do with it.** Dropped.
 
-# `Medium_id` — sample medium
-
-**What it is.** TODO: what was sampled (water, sediment, a tissue of some organism, …).
-
-**What we do with it.** Looked up to give a second guess at compartment, sub-compartment and geographic feature, plus a tissue type for biota. Where this disagrees with `Vannkategori` we apply explicit resolution rules (biota wins; non-wildcard beats wildcard; sediment beats water) and drop what we cannot resolve. *Decision: Lookup.*
-
-# Produktbeskrivelse
+# `Produktbeskrivelse`
 
 I believe this doesn't carry any relevant info, especially if we're just working with water.
 

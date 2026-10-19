@@ -1,7 +1,8 @@
 ---
-title: "Vanmniljø activities"
+title: "Vannmiljø activities"
 description: >
-  An unfinished exploration of the activties represented in Vannmiljø.
+  An unfinished exploration of the monitoring activities (campaigns) in
+  Vannmiljø, and which ones dominate Arctic saltwater pollutant data.
 format:
   html:
     toc: true
@@ -12,6 +13,12 @@ execute:
   warning: false
   message: false
 ---
+
+::: callout-note
+## Summary
+
+Every Vannmiljø registration is tied to one monitoring activity (`Aktivitet`), ranging from formal NEA campaigns such as Milkys to data deposited for other purposes. This unfinished article lists the activity codelist, then counts activities and pollutant groups in a 2010-2025 saltwater export filtered to sites north of the Arctic Circle (about 4,700 relevant records). It ends with notes on basic monitoring (Basisovervåking) and aquaculture sediment monitoring.
+:::
 
 Vannmiljø's Aktivitet names/IDs correspond both to formal monitoring campaigns with associated reports (e.g. MILKYS), as well as other sources of data. Vannmiljø gives a list of activities in its [kodeverk website](https://vannmiljokoder.miljodirektoratet.no/activity?q=) (undated). 
 
@@ -145,43 +152,32 @@ sv_pollutants_relevant |>
 
 This leaves us with not a great deal of data. 4,700 data points of saltwater, relevant stressors.
 
-
-
-
-
-
-
-
-
 # Basisovervåking
 
-According to https://www.vannportalen.no/kunnskapsgrunnlaget/overvaking2/basisovervaking/,
+According to <https://www.vannportalen.no/kunnskapsgrunnlaget/overvaking2/basisovervaking/>,
 Basisovervåking consists of the following activities:
 
-Kystvann:  
+Kystvann:
 
-    Økosystemovervåking i kystvann (Økokyst) (miljødirektoratet)
-    Miljøgifter i kystområdene (Milkys) (miljødirektoratet) ()
-    Havforsuringsprogrammet (miljødirektoratet)
+- Økosystemovervåking i kystvann (Økokyst) (miljødirektoratet)
+- Miljøgifter i kystområdene (Milkys) (miljødirektoratet)
+- Havforsuringsprogrammet (miljødirektoratet)
 
 Ferskvann (elver og innsjøer):
 
-    Overvåking av elvetilførsler og direkte utslipp til norske kystområder (Elvetilførselsprogrammet): 
-        Elveovervåkningsprogrammet – vannkvalitetsstatus og trender
-        Kildefordelte tilførsler av nitrogen og fosfor til norske kystområder
-    Økosystemovervåking i store sjøer (ØKOSTOR)
-    Økosystemovervåking i ferskvann (ØKOFERSK)
-    Referanseelver
-    Grunnvann
-
+- Overvåking av elvetilførsler og direkte utslipp til norske kystområder (Elvetilførselsprogrammet):
+  - Elveovervåkningsprogrammet – vannkvalitetsstatus og trender
+  - Kildefordelte tilførsler av nitrogen og fosfor til norske kystområder
+- Økosystemovervåking i store sjøer (ØKOSTOR)
+- Økosystemovervåking i ferskvann (ØKOFERSK)
+- Referanseelver
+- Grunnvann
 
 # Aquaculture
 
 Aquaculture facilities are required to conduct frequent monitoring of the sediment below
-their sites for contamination. In some areas (such as the Arctic), this is the single largest source of pollution data, and eclipses formal monitoring campaigns. 
+their sites for contamination. In some areas (such as the Arctic), this is the single largest source of pollution data, and eclipses formal monitoring campaigns.
 
-https://www.vannportalen.no/veiledere/veiledning-i-bruk-av-data-fra-miljoundersokelser-ved-akvakulturanlegg-i-sjo-til-klassifisering-av-vannforekomster/
-
-
+See <https://www.vannportalen.no/veiledere/veiledning-i-bruk-av-data-fra-miljoundersokelser-ved-akvakulturanlegg-i-sjo-til-klassifisering-av-vannforekomster/>.
 
 However, when we've looked at actual Vm data (see for example the horizontal/vertical slices), basisovervåkning is its own activity.

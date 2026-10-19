@@ -1,7 +1,9 @@
 ---
-title: "Vanmniljø Arctic/Marine Exploration"
+title: "EXPECT case studies: Tromsø"
 description: >
-  Exploring data relevant to the EXPECT case study, starting with Tromsø.
+  A first EXPECT case study of Arctic saltwater and sediment pollutant data
+  around Tromsø, mapping WFD water bodies and the density of samples and
+  distinct pollutants in a 3 km grid.
 format:
   html:
     toc: true
@@ -18,7 +20,13 @@ execute:
   message: false
 ---
 
-Through a process of not exactly scientific prioritisation (see vannmiljø-expect-data.qmd) we've arrived at a more-or-less reasonable list of areas which I think merit futher attention. I'm desperate to start working with more specific locations, because I think doing stuff at the national level has a lot of challenges. We'll work with the same arctic-saltwater/saltwater sediment dataset we have before:
+::: callout-note
+## Summary
+
+Starts the place-based part of the EXPECT work. From the national Arctic saltwater and sediment dataset, it shortlists candidate towns and picks Tromsø as the first case study. It then draws bounding boxes (60, 20 and 10 km) around Tromsø and maps the WFD water bodies they contain, plus the number of samples and distinct pollutants per 3 km grid square, for seawater and sediment separately. Unfinished: other candidate places are still to do.
+:::
+
+Through a process of not exactly scientific prioritisation (see vannmiljø-expect-data.qmd) we've arrived at a more-or-less reasonable list of areas which I think merit further attention. I'm desperate to start working with more specific locations, because I think doing stuff at the national level has a lot of challenges. We'll work with the same arctic-saltwater/saltwater sediment dataset we have before:
 
 
 ```{r}
@@ -124,8 +132,9 @@ norway_cities <- read_excel(here("inst", "worldcities.xlsx")) |>
 I'm going to use a totally arbitrary starting approach of drawing a 60 x 60km box around Tromsø and seeing what it hits. Panels show the water framework directive (WFD) water bodies, then the number of samples and number of distinct pollutants in 3 km grid squares, for seawater and for sediment. A sample here is a unique combination of site, sampling time, depth and sample number.
 
 Let's set some bounding boxes:
+
 - 60km
-- 20km 
+- 20km
 - 10km
 
 We don't immediately know which of these may be the most appropriate.

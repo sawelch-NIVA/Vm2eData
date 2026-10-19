@@ -1,7 +1,9 @@
 ---
-title: "Vanmniljø Arctic/Marine Exploration"
+title: "EXPECT data: Arctic saltwater and sediment by activity"
 description: >
-  Exploring data relevant to the EXPECT case study.
+  Maps and summarises 2010-2025 Arctic saltwater and saltwater sediment
+  pollutant data from Vannmiljø: overall monitoring density, then the spatial
+  pattern and chemical inventory of each monitoring activity.
 format:
   html:
     toc: true
@@ -17,6 +19,12 @@ execute:
   warning: false
   message: false
 ---
+
+::: callout-note
+## Summary
+
+Focuses on the EXPECT area of interest: pollutant mixtures above the Arctic circle, in saltwater and saltwater sediment (Vannmiljø exports for 2010-2025). It maps overall monitoring density on a 20 km grid, with and without aquaculture, and identifies the most-monitored places (Vadsø, Hammerfest, Harstad, Tromsø, Bodø). It then works through each monitoring activity in turn, ordered by number of measurements, with a map, a heatmap of substances measured and a plot of substances monitored per year. It closes with a table of the most-measured grid cells for the largest activity.
+:::
 
 Based on the scoping and exploration work we've done elsewhere we can start to focus on our main area of interest: mixtures of pollutants above the Arctic circle, in saltwater and saltwater sediment. We'll use the datasets that are filtered to `Saltvann` and `Saltvann sediment` simply because that's the easiest way to get a relevant subset of the data from Vannmiljø. 
 
@@ -479,8 +487,8 @@ plot_substances_per_year("Miljøovervåking akvakulturanlegg")
 
 ### Overvåking av påvirkning fra industri
 
-- Probably our best best for identfying historically contaminated fjords which aren't also major settlements
-- Hotpots: Hammerfest, Mosjøen, Finnsnes/Lenvikk, the square to the SW of Narvik
+- Probably our best best for identifying historically contaminated fjords which aren't also major settlements
+- Hotspots: Hammerfest, Mosjøen, Finnsnes/Lenvikk, the square to the SW of Narvik
 - Metals, PAHs
 
 n = 5899.
@@ -635,7 +643,7 @@ plot_substances_per_year(
 
 - Mostly at a site south of Harstad, and another site NE of Vadsø
 - I am personally surprised that Hammerfest isn't included, because there was a lot of dredging to clean up the harbour there
-- Good range of metals and PAHs, also PBCs, tin-organics
+- Good range of metals and PAHs, also PCBs, tin-organics
 
 n = 2936.
 

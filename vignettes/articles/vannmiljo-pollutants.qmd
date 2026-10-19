@@ -1,7 +1,9 @@
 ---
-title: "Vannmiljø Pollutants - Arctic & Marine"
+title: "Vannmiljø pollutants: codelist and saltwater/sediment coverage"
 description: >
-  Exploring subsets of Vannmiljø data to see how much information they could give us about mixtures of pollutants in Arctic marine environments.
+  Explores the Vannmiljø pollutant codelist and a January-May 2020 slice of
+  registrations to see which pollutant groups and monitoring activities
+  dominate the saltwater and sediment data.
 format:
   html:
     toc: true
@@ -11,6 +13,12 @@ format:
     lightbox: true
 error: true
 ---
+
+::: callout-note
+## Summary
+
+Looks at the pollutants (specific contaminants) in Vannmiljø: first the official pollutant codelist and its subgroups (metals, PAH, PCB, PFAS and so on), then which of these are actually measured in a national January-May 2020 slice, and finally which monitoring activities supply the data for each group in saltwater and sediment. Metals dominate (driven by aquaculture monitoring), PFAS come almost entirely from industry monitoring, and Milkys and MAREANO do not appear in this slice.
+:::
 
 ```{r setup}
 #| include: false
@@ -119,7 +127,7 @@ To be honest, I don't know enough about monitoring campaigns to make a good judg
 
 To gain a deeper understanding about the patterns of pollutants in Vannmiljø, we need to work with actual measurements.
 
-Let's start with a horizontal slice of Vannmiljø, hopefully more-or-less representative. This is all the data from 01 January 2020 to 31 May 2020, which is 464,059 rows. This is downloaded from `Søk i vannrelaterte data`, so we can expect not only pollutants (chemicals, microplastics, etc.), but also biological quality parameters,
+Let's start with a horizontal slice of Vannmiljø, hopefully more-or-less representative. This is all the data from 01 January 2020 to 31 May 2020, which is 464,059 rows. This is downloaded from `Søk i vannrelaterte data`, so we can expect not only pollutants (chemicals, microplastics, etc.), but also biological quality parameters.
 
 ```{r load-data}
 horizontal_slice <- read_parquet(here(
@@ -216,6 +224,7 @@ ggplot(
 So, in some places the pattern holds. Metals are still the best represented, and PAH are still in position #2. Priority substances are still less than half of all groups. Our x axis goes from a limit of 30,000 to 6,000
 
 Key differences:
+
 - ORG drops from #3 to #4
 - PCBs rises from #5 to #3
 - PFAS drops from #4 to #5
@@ -339,7 +348,7 @@ subgroup_plots[["PAH"]]
 - Decently big sample sizes for the majority of substances
 - A set of 12 standard PAH, two almost as standard, and then a mixed bag of several monitored less consistently
 
-### Tinorganic Molcules
+### Tinorganic Molecules
 
 ```{r}
 #| fig-height: 5
@@ -352,8 +361,9 @@ subgroup_plots[["TIN"]]
 # Conclusions
 
 In the available data:
+
 - Metals are by far the most monitored. The over-representation of copper and zinc is largely driven by aquaculture monitoring
 - PFAS are measured entirely by Industry monitoring
-- Contaminated sea bed is an important contributor of PAH, Tin-organic, PDBE, and PDBE data (though measured-oriented monotiring, effects of dredging, industry monitoring, problem survey, and other) are also noteworthy contributors
+- Contaminated sea bed is an important contributor of PAH, Tin-organic, PCB, and PBDE data (though measured-oriented monotiring, effects of dredging, industry monitoring, problem survey, and other) are also noteworthy contributors
 - In general, the distribution of different stressors in different campaigns is difficult to predict just from the names/descriptions of these campaigns.
 - In this dataset Milkys and MAREANO aren't represented at all, which is surprising as I would expect them to be important contributors to marine pollution data (probably an artefact of the time period selected)

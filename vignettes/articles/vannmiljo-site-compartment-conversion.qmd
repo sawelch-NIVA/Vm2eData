@@ -11,6 +11,12 @@ execute:
   freeze: auto
 ---
 
+::: callout-note
+## Summary
+
+Explains, step by step, how the pipeline converts Vannmiljø site categories (`Vannkategori`) and sample media (`Medium_id`) into eData compartments, geographic features and sites. It covers the two lookups, the filters, the rules for reconciling disagreements between them, the splitting of sites with mixed types, and the resulting tables. Worked numbers come from the copper download (138,615 rows in, 89,635 out), and questionable behaviour is marked **Check**.
+:::
+
 ::: callout-warning
 ## Placeholder article
 

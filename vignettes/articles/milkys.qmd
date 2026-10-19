@@ -1,7 +1,8 @@
 ---
-title: "Milkys"
+title: "Milkys: sediment and seawater coverage"
 description: >
-  A very quick review of Milkys - it only contains biota data.
+  A quick check of a Vannmiljø export of the Milkys campaign (2020-2024) to see
+  whether it contains any sediment or seawater data. It is almost entirely biota.
 format:
   html:
     toc: true
@@ -12,6 +13,12 @@ execute:
   warning: false
   message: false
 ---
+
+::: callout-note
+## Summary
+
+We assumed Milkys (the Norwegian coastal contaminants monitoring programme) would be our best source of marine pollution data. This article tabulates a full Vannmiljø export of the Milkys campaign by year (records, stressors, sites and media) and cross-checks it against NIVA's annual reports. Conclusion: Milkys is almost entirely biota, with sediment sampled in only one year and seawater not at all, so it is no use for sediment or seawater questions.
+:::
 
 Because we assumed Milkys to be the best source for pollution in the marine environment, it merits some closer inspection. In this file I will work through both data from and the reports behind Milkys, to develop a better understanding of the dataset and campaigns.
 

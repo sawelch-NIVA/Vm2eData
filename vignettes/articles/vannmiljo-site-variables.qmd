@@ -1,8 +1,9 @@
 ---
-title: "Variables in the Oslo sites export"
+title: "Vannmiljø site export columns: a variable-by-variable guide"
 description: >
-  A walk through the columns of a raw Vannmiljø water-location (site) export,
-  what each one means, and what we do with it on the way to eData.
+  A column-by-column walk through a raw Vannmiljø water-location (site) export
+  (1,315 sites in Oslo), covering what each variable means, quoting the
+  Vannmiljø documentation, and how it is handled on the way to eData.
 format:
   html:
     toc: true
@@ -11,6 +12,12 @@ execute:
   freeze: auto
 ---
 
+::: callout-note
+## Summary
+
+A reference guide to the columns of a Vannmiljø `WaterLocation` (site) export, using the 1,315 sites in Oslo kommune as the worked example. For each column it gives what it is, what values it takes (with counts from this file), relevant passages from the Vannmiljø documentation, and what the eData conversion does with it. It is the site-level counterpart of the measurement variables article; open questions are collected at the end.
+:::
+
 ::: callout-warning
 ## Placeholder article
 
@@ -18,7 +25,7 @@ This is a quick review of the columns in a Vannmiljø water-location (site) expo
 
 This export is the site-level counterpart of the [registration (measurement) export](vannmiljo-data-variables.html): the two are joined on the site code, and several columns here only make sense in that light.
 
-My previous experience with a whole-Norway copper dataset is that site polygons are almost (\>99%) never associated with measured concentrations. It seems safe to assume that this will remain the case
+My previous experience with a whole-Norway copper dataset is that site polygons are almost (\>99%) never associated with measured concentrations. It seems safe to assume that this will remain the case.
 
 Quoted passages (in Norwegian, with a short English translation of our own) are copied from the Vannmiljø code documentation page ["Stedfesting"](https://vannmiljokoder.miljodirektoratet.no/location), Miljødirektoratet, copied 28/09/2026. Everything else is our own reading.
 :::

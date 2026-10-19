@@ -1,7 +1,9 @@
 ---
-title: "Vannmiljø Data Exploration - Arctic & Marine"
+title: "Vannmiljø data exploration: Arctic and marine coverage"
 description: >
-  Exploring subsets of Vannmiljø data to see how much information they could give us about mixtures of pollutants in Arctic marine environments.
+  Defines Arctic, marine and pollutant criteria, then tests a January-May 2020
+  slice and a 2010-2025 copper dataset to see which campaigns and locations
+  could tell us about mixtures of pollutants in Arctic marine environments.
 format:
   html:
     toc: true
@@ -11,6 +13,12 @@ format:
     lightbox: true
 error: true
 ---
+
+::: callout-note
+## Summary
+
+Scopes the EXPECT question (mixtures of pollutants, Arctic sites, marine sites) and tests how much Vannmiljø data fits it. A "horizontal slice" (all national data for January-May 2020) shows how few pollutant records are both Arctic and marine, and which campaigns supply them, with aquaculture monitoring the biggest. A "vertical slice" (all copper data 2010-2025) is then used as a proxy to find Arctic monitoring hotspots (Bodø, Harstad, Tromsø, Hammerfest). The article ends with open questions on how to group sites and a to-do list.
+:::
 
 ```{r setup}
 #| include: false
@@ -28,7 +36,7 @@ library(knitr)
 library(ggrepel)
 ```
 
-Vannmiljø data is divided into various monitoring campaigns ("Aktivitet"), multi-year programs of monitoring specific ecosystems, pressures, etc. These are listed here: https://vannmiljokoder.miljodirektoratet.no/activity?q=.
+Vannmiljø data is divided into various monitoring campaigns ("Aktivitet"), multi-year programs of monitoring specific ecosystems, pressures, etc. These are listed here: <https://vannmiljokoder.miljodirektoratet.no/activity?q=>.
 
 These campaigns are relatively well-described, but it's not always clear what they cover. I've gone through and assigned them a likely relevance score based on descriptions, but let's take a look at the actual data too.
 
@@ -243,7 +251,7 @@ ggplot(
   theme_minimal()
 ```
 
-We can see already that it's not looking great: metals are the most commonly monitored pollutant, but even for them less than 10% of samples are from marine ecosystems. Next up is PAHs, organic chemistr, and PFAS, the proportion of which are marine/arctic is <1%.
+We can see already that it's not looking great: metals are the most commonly monitored pollutant, but even for them less than 10% of samples are from marine ecosystems. Next up is PAHs, organic chemistry, and PFAS, the proportion of which are marine/arctic is <1%.
 
 It's worth taking a closer look at each class of chemical.
 
@@ -287,7 +295,7 @@ walk(subgroups, .f = function(subgroup) {
 
 ## Arctic + Marine Subset
 
-Now that we've identified the most relevant subset of the data, it's worth looking at what campaigns contribute most to this datast:
+Now that we've identified the most relevant subset of the data, it's worth looking at what campaigns contribute most to this dataset:
 
 ```{r campaign-representation}
 #| fig-cap: "Number of samples per monitoring campaign, coloured by Arctic/marine classification."
@@ -672,10 +680,8 @@ Next tasks:
 - Only consider sediment and water concentrations
 - Send KET a list of relevant reports
 - Get 
-
-= Could we do the whole-artic data and have a look at how much spatial location explains it?
-
-= Could scope it to water and sediment, sørfjorden
+- Could we do the whole-artic data and have a look at how much spatial location explains it?
+- Could scope it to water and sediment, sørfjorden
 - Do some AI summaries of relevant monitoring reports/campaigns
 
 1. Get Claude to review NEA reports over the past 5 years for Arctic data

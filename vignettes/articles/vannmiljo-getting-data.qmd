@@ -1,7 +1,9 @@
 ---
-title: "Getting data from Vanmniljø"
+title: "Getting data from Vannmiljø"
 description: >
-  How we get data from Vannmiljø. So far only covers the frontend.
+  The two ways to get data out of Vannmiljø (web frontend and API), the two main
+  tables behind it, and a walkthrough of the frontend's registration search.
+  So far only the frontend is covered.
 format:
   html:
     toc: true
@@ -12,6 +14,12 @@ execute:
   warning: false
   message: false
 ---
+
+::: callout-note
+## Summary
+
+An overview of how to get data out of Vannmiljø. It outlines the two access routes (the web frontend and the keyed API), the two core tables (`WaterLocation` and `WaterRegistration`) and how they join, and describes the frontend's "Søk i data" search, including its limitations. The API is not yet covered.
+:::
 
 - Vm offer two ways to get data: a frontend at https://vannmiljo.miljodirektoratet.no/ (including a qGIS-powered map interface), and an API (documented [here](https://vannmiljokoder.miljodirektoratet.no/api), needs a key)
 
